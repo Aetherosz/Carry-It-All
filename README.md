@@ -1,4 +1,4 @@
-﻿# Inventory Bonus
+# Inventory Bonus
 
 Adds **+X inventory slots** on top of everything else. There are no milestones or unlocks, and you can change the number in-game whenever you like.
 
@@ -16,7 +16,7 @@ total slots = default + vanilla upgrades + other mods' upgrades + bonus
 Every part except the bonus is recalculated from the game's own data on spawn, on load, and whenever any schematic is unlocked. Buying upgrades or adding and removing other inventory mods keeps working.
 
 ## Settings menu
-Open **Mods â†’ Mod Configuration â†’ Inventory Bonus** from the main menu or the pause menu, and set **Bonus inventory slots**.
+Open **Mods → Mod Configuration → Inventory Bonus** from the main menu or the pause menu, and set **Bonus inventory slots**.
 - Changes made from the pause menu take effect within a second. You don't need to reload.
 - **Reset to default** returns the bonus to +1000.
 - This uses SML's built-in mod config system, so no other settings mod is required. SML saves the value to `<Satisfactory>\FactoryGame\Configs\InventoryBonus.cfg`.
@@ -33,7 +33,7 @@ The chat command changes the same value as the settings menu.
 | `/invbonus 0` | No bonus (back to the normal game) |
 
 - **Removing slots never deletes items.** If a slot being removed still holds items, it's kept and the game tells you. Empty your last slots and run `/invbonus` again to finish shrinking.
-- The bonus applies to every save. The range is 0â€“20000.
+- The bonus applies to every save. The range is 0–20000.
 - In multiplayer, the bonus applies to every player and only the host can change it. Everyone needs the mod installed.
 
 ## Files
@@ -67,7 +67,7 @@ https://docs.ficsit.app/satisfactory-modding/latest/Development/BeginnersGuide/d
 1. Copy this `InventoryBonus` folder into `SatisfactoryModLoader/Mods/`.
 2. Right-click `FactoryGame.uproject`, choose **Generate Visual Studio project files**, then build **Development Editor / Win64**.
 3. Open the editor. In **Alpakit**, set the game path to your Satisfactory install folder, tick **InventoryBonus**, and click **Alpakit Dev**.
-4. Launch the game and check **Mods â†’ Mod Configuration â†’ Inventory Bonus**, or type `/invbonus` in chat.
+4. Launch the game and check **Mods → Mod Configuration → Inventory Bonus**, or type `/invbonus` in chat.
 
 ## Limitations
 - Mods that add slots through schematics are counted, which is the normal way and how `InventorySpace2`/`3` work. A mod that resizes the inventory directly in code is overridden by this mod's total. If that happens, raise the bonus to compensate.

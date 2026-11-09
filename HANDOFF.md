@@ -1,16 +1,38 @@
-﻿# InventoryBonus â€” handoff
+# InventoryBonus — handoff
 
 Notes for picking this project up on a new PC.
 
+## Fast path: from the external SSD (`Satisfactory-Modding` folder)
+| Folder | Contents | Use |
+|---|---|---|
+| `1-Installers\UnrealEngine-5.6.1-CSS` | Engine installer: the .exe plus 3 .bin files | Run the .exe. It installs to `C:\Program Files\Unreal Engine - CSS` |
+| `1-Installers\Wwise_2025.1.6.9117` | Copy of the installed Wwise | Copy to `C:\Audiokinetic\Wwise_2025.1.6.9117`. If the Audiokinetic Launcher doesn't pick it up, install 2025.1.6.9117 through the launcher instead |
+| `2-Project\SatisfactoryModLoader` | Starter project with Wwise already integrated and compiled binaries | Copy it anywhere, then create the `C:\SML` junction (see below). It already contains `Mods\InventoryBonus` |
+| `3-Builds\InventoryBonus-Windows.zip` | Packaged v1.0.0 | Unzip into `<Satisfactory>\FactoryGame\Mods\InventoryBonus\` |
+| `4-Memory` | Notes from the previous AI session | Give them to the next session as context |
+
+You still have to install on the new PC:
+1. Visual Studio 2022 with the workloads and MSVC 14.38 listed below.
+2. Git.
+3. The Audiokinetic Launcher. You need to sign in to it.
+4. SML through Satisfactory Mod Manager.
+5. The game.
+
+Order: Visual Studio → engine → Wwise → copy the project → `C:\SML` junction → generate project files → build.
+
+If the copied binaries won't load, delete `Binaries` and `Intermediate` in the project and the mod folders, then rebuild.
+
+The source of truth for the mod is the GitHub repo `Aetherosz/Inventory-Bonus`. Clone it over `C:\SML\Mods\InventoryBonus`, or replace that folder with the clone. The folder must be named `InventoryBonus` to match the plugin name.
+
 ## Status (2026-11-09)
 - **v1.0.0 works in-game.** In a real save, `/invbonus` printed `18 default + 12 vanilla upgrades + 200 mod upgrades + 1000 bonus = 1230 slots`.
-- The settings menu entry (Mods â†’ Mod Configuration â†’ Inventory Bonus) registers, and SML writes `FactoryGame\Configs\InventoryBonus.cfg`.
+- The settings menu entry (Mods → Mod Configuration → Inventory Bonus) registers, and SML writes `FactoryGame\Configs\InventoryBonus.cfg`.
 - The author is set to `Aetherosz`.
 - **Not yet verified:**
   - Shrinking with `/invbonus 0` and growing back. Check the scrollbar length: 0 should give 230 slots.
   - Changing the value in the pause-menu settings live.
   - Multiplayer.
-- **Known cosmetic issue:** `Resources/Icon128.png` is missing, so SML logs an error and shows a placeholder icon. Add a 128Ã—128 PNG at `Resources/Icon128.png` to fix it.
+- **Known cosmetic issue:** `Resources/Icon128.png` is missing, so SML logs an error and shows a placeholder icon. Add a 128×128 PNG at `Resources/Icon128.png` to fix it.
 
 ## What the mod does
 total slots = default + vanilla schematic slot unlocks + other mods' schematic slot unlocks + bonus
@@ -49,7 +71,7 @@ Follow https://docs.ficsit.app/satisfactory-modding/latest/Development/Beginners
    - .NET desktop
 
    Also add the individual component **MSVC v143 14.38 (x64/x86)**. Not the ARM64 one.
-2. **GitHub â†” Epic link** is already done for the account `Aetherosz`, and it is per account. On the new PC you only need to sign in to GitHub. **Unreal Linker** (https://linker.ficsit.app/link) is already done too.
+2. **GitHub ↔ Epic link** is already done for the account `Aetherosz`, and it is per account. On the new PC you only need to sign in to GitHub. **Unreal Linker** (https://linker.ficsit.app/link) is already done too.
 3. **Unreal Engine 5.6.1-CSS:**
    - Download the 4 files from https://github.com/satisfactorymodding/UnrealEngine/releases/tag/5.6.1-css-83: `UnrealEngine-CSS-Editor-Win64.exe` and `-1.bin`, `-2.bin`, `-3.bin`.
    - Run the .exe. It installs to `C:\Program Files\Unreal Engine - CSS`.
@@ -67,10 +89,10 @@ Follow https://docs.ficsit.app/satisfactory-modding/latest/Development/Beginners
    New-Item -ItemType Junction -Path C:\SML -Target "<where you cloned SatisfactoryModLoader>"
    ```
 7. **Integrate Wwise** in the Audiokinetic Launcher (you must be signed in):
-   - Open the Unreal Engine tab and choose Open other â†’ `C:\SML\FactoryGame.uproject`.
+   - Open the Unreal Engine tab and choose Open other → `C:\SML\FactoryGame.uproject`.
    - Choose Integrate Wwise in Project.
-   - Set Integration Version to All â†’ `2025.1.6.9117`.
-   - Under Wwise Project, choose â–¸ New project.
+   - Set Integration Version to All → `2025.1.6.9117`.
+   - Under Wwise Project, choose ▸ New project.
    - Click Integrate.
 8. **Generate soundbanks:**
    - Open `SatisfactoryModLoader_WwiseProject.wproj` in Wwise.
