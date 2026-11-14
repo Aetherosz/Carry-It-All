@@ -35,7 +35,7 @@ namespace
 		if (B.HeldByItems > 0)
 		{
 			Sender->SendChatMessage(FString::Printf(
-				TEXT("Kept %d extra slot(s) because they still hold items. Empty your last slots, then run /invbonus again."),
+				TEXT("Kept %d extra slot(s) because they still hold items. Run /invbonus with the bonus you want to move them into a crate."),
 				B.HeldByItems), FLinearColor::Yellow);
 		}
 	}
@@ -59,15 +59,12 @@ EExecutionStatus AInventoryBonusCommand::ExecuteCommand_Implementation(UCommandS
 		return EExecutionStatus::COMPLETED;
 	}
 
-	// In multiplayer only the host may change it (it affects everyone).
-	if (Sender->IsPlayerSender())
+	// It affects everyone: the host, the server console, or (dedicated servers, if allowed) any player.
+	FString Reason;
+	if (!FInventoryBonus::CanChangeBonus(Sender, Reason))
 	{
-		const AFGPlayerController* Controller = Sender->GetPlayer();
-		if (!Controller || !Controller->IsLocalController())
-		{
-			Sender->SendChatMessage(TEXT("Only the host can change the inventory bonus."), FLinearColor::Red);
-			return EExecutionStatus::INSUFFICIENT_PERMISSIONS;
-		}
+		Sender->SendChatMessage(Reason, FLinearColor::Red);
+		return EExecutionStatus::INSUFFICIENT_PERMISSIONS;
 	}
 
 	FString Arg = Arguments[0];
@@ -79,11 +76,18 @@ EExecutionStatus AInventoryBonusCommand::ExecuteCommand_Implementation(UCommandS
 		return EExecutionStatus::BAD_ARGUMENTS;
 	}
 
+	UWorld* World = Sender->GetWorld();
 	const int32 Value = FCString::Atoi(*Arg);
-	const int32 NewBonus = bRelative ? FInventoryBonus::GetBonus() + Value : Value;
-	FInventoryBonus::SetBonus(Sender->GetWorld(), NewBonus);
+	const int32 NewBonus = bRelative ? FInventoryBonus::GetBonus(World) + Value : Value;
+	const FBonusChangeResult Result = FInventoryBonus::SetBonus(World, NewBonus);
 
-	Sender->SendChatMessage(FString::Printf(TEXT("Inventory bonus set to +%d."), FInventoryBonus::GetBonus()));
+	Sender->SendChatMessage(FString::Printf(TEXT("Inventory bonus for this save set to +%d."), FInventoryBonus::GetBonus(World)));
+	if (Result.PlayersWithCrate > 0)
+	{
+		Sender->SendChatMessage(FString::Printf(
+			TEXT("%d item(s) didn't fit and were put in a crate at the feet of %d player(s)."),
+			Result.ItemsInCrates, Result.PlayersWithCrate), FLinearColor::Yellow);
+	}
 	PrintBreakdown(Sender, FindPlayerFor(Sender));
 	return EExecutionStatus::COMPLETED;
 }

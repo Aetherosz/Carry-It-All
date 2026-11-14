@@ -1,6 +1,6 @@
 # Inventory Bonus
 
-Adds **+X inventory slots** on top of everything else. There are no milestones or unlocks, and you can change the number in-game whenever you like.
+Adds **+X inventory slots** on top of everything else. There are no milestones or unlocks. Each save has its own bonus, and you can change it in-game whenever you like.
 
 ```
 total slots = default + vanilla upgrades + other mods' upgrades + bonus
@@ -10,41 +10,56 @@ total slots = default + vanilla upgrades + other mods' upgrades + bonus
 |---|---|
 | Default | The game's starting slot count (`mDefaultPlayerInventorySlots`) |
 | Vanilla upgrades | Every purchased vanilla schematic that unlocks slots: HUB milestones, MAM research, hard drive alternates |
-| Mod upgrades | Every purchased schematic from a mod that unlocks slots, e.g. your `InventorySpace2` (+50) and `InventorySpace3` (+150) |
-| Bonus | This mod. It starts at **+1000** and you can change it in the mod settings menu or with `/invbonus` |
+| Mod upgrades | Every purchased schematic from a mod that unlocks slots, e.g. `InventorySpace2` (+50) or `InventorySpace3` (+150) |
+| Bonus | This mod. New saves start at **+1000**. Change it in the mod settings menu or with `/invbonus` |
 
 Every part except the bonus is recalculated from the game's own data on spawn, on load, and whenever any schematic is unlocked. Buying upgrades or adding and removing other inventory mods keeps working.
 
 ## Settings menu
-Open **Mods → Mod Configuration → Inventory Bonus** from the main menu or the pause menu, and set **Bonus inventory slots**.
-- Changes made from the pause menu take effect within a second. You don't need to reload.
-- **Reset to default** returns the bonus to +1000.
-- This uses SML's built-in mod config system, so no other settings mod is required. SML saves the value to `<Satisfactory>\FactoryGame\Configs\InventoryBonus.cfg`.
+Open **Mods → Mod Configuration → Inventory Bonus**.
+- **In a save** (pause menu): the top line shows your breakdown, e.g. `18 default + 12 vanilla upgrades + 200 mod upgrades + 1000 bonus = 1230 slots`. **Bonus inventory slots (this save)** changes that save's bonus, and it takes effect within a second.
+- **In the main menu**: **Bonus inventory slots (new saves)** is the bonus a save starts with the first time it's loaded with this mod.
+- **Dedicated servers: any player can change the bonus**: see Multiplayer below.
+- This uses SML's built-in mod config system, so no other settings mod is required.
 
 ## In-game commands (chat)
-The chat command changes the same value as the settings menu.
-
 | Command | Effect |
 |---|---|
-| `/invbonus` | Show your breakdown, e.g. `16 default + 32 vanilla upgrades + 200 mod upgrades + 1000 bonus = 1248 slots` |
-| `/invbonus 500` | Set the bonus to +500 |
+| `/invbonus` | Show your breakdown |
+| `/invbonus 500` | Set this save's bonus to +500 |
 | `/invbonus +200` | Add 200 |
 | `/invbonus -200` | Remove 200 |
 | `/invbonus 0` | No bonus (back to the normal game) |
 
-- **Removing slots never deletes items.** If a slot being removed still holds items, it's kept and the game tells you. Empty your last slots and run `/invbonus` again to finish shrinking.
-- The bonus applies to every save. The range is 0–20000.
-- In multiplayer, the bonus applies to every player and only the host can change it. Everyone needs the mod installed.
+The range is 0–20000.
+
+## Lowering the bonus never deletes items
+When you lower the bonus (with `/invbonus` or in the settings menu), items in the slots being removed are moved into free slots. Whatever doesn't fit goes into a **crate at your feet**, and chat tells you how many items went in. The crate is created before anything is removed; if it can't be created, the inventory isn't shrunk.
+
+Automatic resizes (loading a save, unlocking an upgrade) never move items: slots that still hold items are kept until you lower the bonus yourself.
+
+## Each save has its own bonus
+The bonus is stored in the save file. Saves from v1.0 (which used one bonus for every save) keep the bonus you had.
+
+## Multiplayer
+- The bonus applies to every player. Everyone needs the mod installed.
+- **Single player / hosting:** only the host can change it.
+- **Dedicated server:** by default, only the server console can change the bonus (players can still type `/invbonus` to see their breakdown). To let every player change it, turn on **Dedicated servers: any player can change the bonus** in the server's `FactoryGame/Configs/InventoryBonus.cfg` (`"AnyPlayerCanChange": true`). Only the server's setting counts.
+
+## Uninstalling
+Before you remove the mod, run `/invbonus 0` in each save you care about. Anything that no longer fits goes into a crate, so no items are left in slots that disappear.
 
 ## Files
 ```
 InventoryBonus/
   InventoryBonus.uplugin
+  Resources/Icon128.png                 mod icon
   Config/AccessTransformers.ini         grants read access to the private default-slot field
   Source/InventoryBonus/
     InventoryBonus.Build.cs             from the official Alpakit C++ template
-    Public/InventoryBonus.h             slot math + bonus storage
-    Private/InventoryBonus.cpp          hooks: Resize, BeginPlay, GiveAccessToSchematic(s)
+    Public/InventoryBonus.h             slot math, crate shrink, config sync
+    Private/InventoryBonus.cpp          hooks: Resize, BeginPlay, GiveAccessToSchematic(s), config changes
+    Public|Private/InventoryBonusSubsystem.*  stores the bonus in the save file
     Public|Private/InventoryBonusConfig.*    Mods -> Mod Configuration entry (SML config)
     Public|Private/InventoryBonusCommand.*   /invbonus chat command
     Public|Private/InventoryBonusModule.*    module entry point
@@ -55,13 +70,14 @@ C++ mods must be compiled with Coffee Stain's custom Unreal Engine. Follow the o
 https://docs.ficsit.app/satisfactory-modding/latest/Development/BeginnersGuide/dependencies.html
 
 1. **Accounts:** GitHub, an Epic Games account linked to GitHub, and the ficsit.app Unreal Linker for access to the modding engine. You also need an Audiokinetic account for Wwise.
-2. **Visual Studio 2022** (17.14), with the C++ game dev, C++ desktop, and .NET desktop workloads, plus MSVC v143 14.38.
+2. **Visual Studio 2022** (17.14) or 2026, with the C++ game dev, C++ desktop, and .NET desktop workloads, plus MSVC v143 14.38.
 3. **Unreal Engine 5.6.1-CSS** from the modding engine release.
 4. **Wwise 2025.1.6.9117** (Authoring + SDK).
 5. **Starter project**:
    ```bash
    git clone https://github.com/satisfactorymodding/SatisfactoryModLoader.git SatisfactoryModLoader
    ```
+   Keep it at a short path (e.g. `C:\SML`): the build fails if any path goes over 260 characters.
 
 ## Compile and install
 1. Copy this `InventoryBonus` folder into `SatisfactoryModLoader/Mods/`.
@@ -71,4 +87,4 @@ https://docs.ficsit.app/satisfactory-modding/latest/Development/BeginnersGuide/d
 
 ## Limitations
 - Mods that add slots through schematics are counted, which is the normal way and how `InventorySpace2`/`3` work. A mod that resizes the inventory directly in code is overridden by this mod's total. If that happens, raise the bonus to compensate.
-- If you uninstall the mod, the inventory may shrink back to the vanilla size. It's untested whether the game keeps the larger size in its save data. Back up your save and empty your extra slots first.
+- If you uninstall the mod without lowering the bonus first, the inventory may shrink back to the vanilla size, and it isn't yet known what happens to items in the extra slots. Run `/invbonus 0` first (see Uninstalling above), and back up your save.

@@ -2,16 +2,22 @@
 
 #include "InventoryBonusCommand.h"
 #include "InventoryBonusConfig.h"
+#include "InventoryBonusSubsystem.h"
 
 #include "Command/ChatCommandLibrary.h"
+#include "Command/CommandSender.h"
 #include "Configuration/ConfigManager.h"
+#include "Configuration/Properties/ConfigPropertyBool.h"
 #include "Configuration/Properties/ConfigPropertyInteger.h"
 #include "Configuration/Properties/ConfigPropertySection.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "FGCharacterPlayer.h"
+#include "FGCrate.h"
 #include "FGInventoryComponent.h"
+#include "FGItemPickup_Spawnable.h"
+#include "FGPlayerController.h"
 #include "FGSchematic.h"
 #include "FGSchematicManager.h"
 #include "Patching/NativeHookManager.h"
@@ -22,7 +28,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogInventoryBonus, Log, All);
 
 TWeakObjectPtr<UConfigManager> FInventoryBonus::ConfigManager;
 TWeakObjectPtr<UWorld> FInventoryBonus::PolledWorld;
-int32 FInventoryBonus::LastAppliedBonus = -1;
+bool FInventoryBonus::bWritingConfig = false;
 
 // ---------------------------------------------------------------------------
 // Hooks
@@ -33,23 +39,25 @@ void FInventoryBonus::RegisterHooks()
 	// Register the mod config as soon as the game instance exists, so it is
 	// listed in the main menu's Mods -> Mod Configuration before any save loads.
 	FWorldDelegates::OnStartGameInstance.AddStatic(&FInventoryBonus::RegisterConfig);
+	FWorldDelegates::OnWorldCleanup.AddStatic(&FInventoryBonus::OnWorldCleanup);
 
 #if !WITH_EDITOR
-	// Bonus changed in the Mod Configuration menu (or by /invbonus) -> resize everyone now.
+	// Bonus changed in the Mod Configuration menu -> store it in the save (or as "new saves").
 	SUBSCRIBE_METHOD_AFTER(UConfigManager::MarkConfigurationDirty,
 		[](UConfigManager* Self, const FConfigId& Id)
 		{
-			if (Id == UInventoryBonusConfig::GetId())
+			if (!bWritingConfig && Id == UInventoryBonusConfig::GetId())
 			{
 				if (UGameInstance* GameInstance = Self->GetGameInstance())
 				{
-					ApplyToAllPlayers(GameInstance->GetWorld());
+					OnConfigChanged(GameInstance->GetWorld());
 				}
 			}
 		});
 
 	// Every resize of a player's main inventory (spawn, load, unlocks, other code)
 	// is replaced by our own total, so the bonus always sits on top.
+	// This path never moves items: it only refuses to drop slots that still hold something.
 	SUBSCRIBE_METHOD(UFGInventoryComponent::Resize,
 		[](auto& Scope, UFGInventoryComponent* Self, int32 NewSize)
 		{
@@ -65,39 +73,43 @@ void FInventoryBonus::RegisterHooks()
 			Scope(Self, NewSize);
 		});
 
-	// On spawn: register the chat command and apply the bonus. Applied again a bit
-	// later, because on save load the schematic data can arrive after the player spawns.
+	// On spawn: set up the save's bonus, register the chat command and apply. Applied again a
+	// bit later, because on save load the schematic data can arrive after the player spawns.
 	SUBSCRIBE_METHOD_VIRTUAL_AFTER(AFGCharacterPlayer::BeginPlay, GetMutableDefault<AFGCharacterPlayer>(),
 		[](AFGCharacterPlayer* Self)
 		{
-			if (!Self->HasAuthority())
+			UWorld* World = Self->GetWorld();
+			if (!World)
 			{
+				return;
+			}
+			if (World->GetNetMode() == NM_Client)
+			{
+				UpdateMenuText(EMenuMode::Client);
 				return;
 			}
 			if (!ConfigManager.IsValid())
 			{
 				RegisterConfig(Self->GetGameInstance()); // fallback if OnStartGameInstance fired before we loaded
 			}
-			if (AChatCommandSubsystem* Commands = AChatCommandSubsystem::Get(Self))
-			{
-				Commands->RegisterCommand(TEXT("InventoryBonus"), AInventoryBonusCommand::StaticClass());
-			}
 
-			// Safety net for menu edits: once per world, check every second whether the
-			// configured bonus differs from what was last applied, and re-apply if so.
-			UWorld* World = Self->GetWorld();
-			if (World && PolledWorld.Get() != World)
+			// Once per world: adopt the save's bonus, register the command, start the menu poll.
+			if (PolledWorld.Get() != World)
 			{
 				PolledWorld = World;
+				AInventoryBonusSubsystem::GetOrRegister(World);
+				ShowSaveInConfig(World);
+
+				if (AChatCommandSubsystem* Commands = AChatCommandSubsystem::Get(Self))
+				{
+					Commands->RegisterCommand(TEXT("InventoryBonus"), AInventoryBonusCommand::StaticClass());
+				}
+
+				// Safety net for menu edits: check every second whether the menu value
+				// differs from the save's bonus, and apply it if so.
 				FTimerHandle PollHandle;
 				World->GetTimerManager().SetTimer(PollHandle,
-					FTimerDelegate::CreateWeakLambda(World, [World]()
-					{
-						if (GetBonus() != LastAppliedBonus)
-						{
-							ApplyToAllPlayers(World);
-						}
-					}),
+					FTimerDelegate::CreateWeakLambda(World, [World]() { OnConfigChanged(World); }),
 					1.0f, true);
 			}
 
@@ -161,7 +173,7 @@ bool FInventoryBonus::ComputeBreakdown(AFGCharacterPlayer* Player, FInventorySlo
 		}
 	}
 
-	Out.Bonus = GetBonus();
+	Out.Bonus = GetBonus(Player->GetWorld());
 	Out.Wanted = FMath::Max(1, Out.Default + Out.VanillaUpgrades + Out.ModUpgrades + Out.Bonus);
 	return true;
 }
@@ -213,23 +225,177 @@ void FInventoryBonus::ApplyToPlayer(AFGCharacterPlayer* Player)
 		// The Resize hook swaps in the correct total.
 		Inventory->Resize(Inventory->GetSizeLinear());
 	}
+	if (Player->IsLocallyControlled())
+	{
+		const FInventorySlotBreakdown Breakdown = GetBreakdown(Player);
+		UpdateMenuText(EMenuMode::InSave, &Breakdown);
+	}
 }
 
 void FInventoryBonus::ApplyToAllPlayers(UWorld* World)
 {
-	if (!World)
+	if (!World || World->GetNetMode() == NM_Client)
 	{
 		return;
 	}
-	LastAppliedBonus = GetBonus();
 	for (TActorIterator<AFGCharacterPlayer> It(World); It; ++It)
 	{
 		ApplyToPlayer(*It);
 	}
 }
 
+int32 FInventoryBonus::ShrinkWithCrate(AFGCharacterPlayer* Player, UFGInventoryComponent* Inventory, int32 Wanted)
+{
+	const int32 Size = Inventory->GetSizeLinear();
+	TArray<FInventoryStack> Removed;
+	for (int32 Index = Wanted; Index < Size; ++Index)
+	{
+		FInventoryStack Stack;
+		if (Inventory->GetStackFromIndex(Index, Stack) && Stack.HasItems())
+		{
+			Removed.Add(Stack);
+		}
+	}
+	if (Removed.Num() == 0)
+	{
+		return 0; // nothing in the removed slots, the normal resize handles it
+	}
+
+	// 1. Spawn the crate with copies of the items first. If that fails, nothing is touched.
+	FSpawnInventoryCrateParameters Params;
+	Params.ActorsToIgnore.Add(Player);
+	Params.bAllowCrateMerging = false;
+	AFGCrate* Crate = AFGItemPickup_Spawnable::SpawnInventoryCrate(Player->GetWorld(), Removed, Player->GetActorLocation(), Params);
+	if (!Crate || !Crate->GetInventory())
+	{
+		UE_LOG(LogInventoryBonus, Warning, TEXT("Couldn't spawn a crate for %s; keeping the occupied slots instead"), *Player->GetName());
+		return 0;
+	}
+
+	// 2. The items are safe in the crate: clear the removed slots and shrink.
+	for (int32 Index = Wanted; Index < Size; ++Index)
+	{
+		Inventory->RemoveAllFromIndex(Index);
+	}
+	Inventory->Resize(Inventory->GetSizeLinear()); // the Resize hook now shrinks to Wanted
+
+	// 3. Pull back whatever fits into the smaller inventory. An emptied crate removes itself.
+	UFGInventoryComponent* CrateInventory = Crate->GetInventory();
+	for (int32 Index = 0; IsValid(Crate) && Index < CrateInventory->GetSizeLinear(); ++Index)
+	{
+		FInventoryStack Stack;
+		if (CrateInventory->GetStackFromIndex(Index, Stack) && Stack.HasItems())
+		{
+			const int32 Added = Inventory->AddStack(Stack, true);
+			if (Added > 0)
+			{
+				CrateInventory->RemoveFromIndex(Index, Added);
+			}
+		}
+	}
+
+	int32 ItemsLeft = 0;
+	if (IsValid(Crate))
+	{
+		for (int32 Index = 0; Index < CrateInventory->GetSizeLinear(); ++Index)
+		{
+			FInventoryStack Stack;
+			if (CrateInventory->GetStackFromIndex(Index, Stack))
+			{
+				ItemsLeft += Stack.NumItems;
+			}
+		}
+		if (ItemsLeft == 0)
+		{
+			Crate->Destroy();
+		}
+	}
+	return ItemsLeft;
+}
+
 // ---------------------------------------------------------------------------
-// Bonus value (stored in SML's mod config)
+// Bonus value (stored per save, mirrored in SML's mod config)
+// ---------------------------------------------------------------------------
+
+int32 FInventoryBonus::GetBonus(UWorld* World)
+{
+	if (AInventoryBonusSubsystem* Subsystem = AInventoryBonusSubsystem::Get(World))
+	{
+		return Subsystem->GetBonus();
+	}
+	return GetNewSaveBonus();
+}
+
+int32 FInventoryBonus::GetNewSaveBonus()
+{
+	int32 Value = GetConfigInt(UInventoryBonusConfig::NewSaveBonusKey, -1);
+	if (Value < 0)
+	{
+		Value = GetConfigInt(UInventoryBonusConfig::BonusKey, DefaultBonus); // not migrated yet
+	}
+	return FMath::Clamp(Value, 0, MaxBonus);
+}
+
+FBonusChangeResult FInventoryBonus::SetBonus(UWorld* World, int32 NewBonus)
+{
+	FBonusChangeResult Result;
+	AInventoryBonusSubsystem* Subsystem = AInventoryBonusSubsystem::GetOrRegister(World);
+	if (!Subsystem)
+	{
+		UE_LOG(LogInventoryBonus, Warning, TEXT("No save loaded (or not the server); bonus change ignored"));
+		return Result;
+	}
+	Subsystem->SetBonus(NewBonus);
+	SetConfigInt(UInventoryBonusConfig::BonusKey, Subsystem->GetBonus(), false);
+
+	for (TActorIterator<AFGCharacterPlayer> It(World); It; ++It)
+	{
+		AFGCharacterPlayer* Player = *It;
+		UFGInventoryComponent* Inventory = Player ? Player->GetInventory() : nullptr;
+		FInventorySlotBreakdown Breakdown;
+		if (Inventory && ComputeBreakdown(Player, Breakdown) && Inventory->GetSizeLinear() > Breakdown.Wanted)
+		{
+			const int32 ItemsInCrate = ShrinkWithCrate(Player, Inventory, Breakdown.Wanted);
+			if (ItemsInCrate > 0)
+			{
+				++Result.PlayersWithCrate;
+				Result.ItemsInCrates += ItemsInCrate;
+			}
+		}
+		ApplyToPlayer(Player);
+	}
+	return Result;
+}
+
+bool FInventoryBonus::CanChangeBonus(UCommandSender* Sender, FString& OutReason)
+{
+	if (!Sender->IsPlayerSender())
+	{
+		return true; // server console
+	}
+	const AFGPlayerController* Controller = Sender->GetPlayer();
+	if (Controller && Controller->IsLocalController())
+	{
+		return true; // single player, or the host of a hosted game
+	}
+	UWorld* World = Sender->GetWorld();
+	if (World && World->GetNetMode() == NM_DedicatedServer)
+	{
+		const UConfigPropertyBool* AnyPlayer = Cast<UConfigPropertyBool>(GetConfigProperty(UInventoryBonusConfig::AnyPlayerCanChangeKey));
+		if (AnyPlayer && AnyPlayer->Value)
+		{
+			return true;
+		}
+		OutReason = TEXT("On this server only the server console can change the inventory bonus. "
+			"The server owner can allow all players in the mod's config.");
+		return false;
+	}
+	OutReason = TEXT("Only the host can change the inventory bonus.");
+	return false;
+}
+
+// ---------------------------------------------------------------------------
+// Mod config
 // ---------------------------------------------------------------------------
 
 void FInventoryBonus::RegisterConfig(UGameInstance* GameInstance)
@@ -238,49 +404,130 @@ void FInventoryBonus::RegisterConfig(UGameInstance* GameInstance)
 	{
 		return;
 	}
-	if (UConfigManager* Manager = GameInstance->GetSubsystem<UConfigManager>())
-	{
-		Manager->RegisterModConfiguration(UInventoryBonusConfig::StaticClass());
-		ConfigManager = Manager;
-	}
-	else
-	{
-		UE_LOG(LogInventoryBonus, Error, TEXT("SML config manager not found; using default bonus +%d"), DefaultBonus);
-	}
-}
-
-UConfigPropertyInteger* FInventoryBonus::GetBonusProperty()
-{
-	UConfigManager* Manager = ConfigManager.Get();
+	UConfigManager* Manager = GameInstance->GetSubsystem<UConfigManager>();
 	if (!Manager)
 	{
-		return nullptr;
+		UE_LOG(LogInventoryBonus, Error, TEXT("SML config manager not found; using default bonus +%d"), DefaultBonus);
+		return;
 	}
-	UConfigPropertySection* Root = Manager->GetConfigurationRootSection(UInventoryBonusConfig::GetId());
-	if (!Root)
+	Manager->RegisterModConfiguration(UInventoryBonusConfig::StaticClass());
+	ConfigManager = Manager;
+
+	// First run after v1.0: the old global bonus becomes the "new saves" bonus, so saves
+	// from v1.0 keep the bonus they had.
+	if (GetConfigInt(UInventoryBonusConfig::NewSaveBonusKey, -1) < 0)
 	{
-		return nullptr;
+		SetConfigInt(UInventoryBonusConfig::NewSaveBonusKey,
+			FMath::Clamp(GetConfigInt(UInventoryBonusConfig::BonusKey, DefaultBonus), 0, MaxBonus), true);
 	}
-	const TObjectPtr<UConfigProperty>* Property = Root->SectionProperties.Find(UInventoryBonusConfig::BonusKey);
-	return Property ? Cast<UConfigPropertyInteger>(Property->Get()) : nullptr;
+	// In the main menu the visible value is the "new saves" bonus (the game may have been
+	// closed while a save's value was shown).
+	SetConfigInt(UInventoryBonusConfig::BonusKey, GetNewSaveBonus(), false);
+	UpdateMenuText(EMenuMode::MainMenu);
 }
 
-int32 FInventoryBonus::GetBonus()
+UConfigProperty* FInventoryBonus::GetConfigProperty(const FString& Key)
 {
-	const UConfigPropertyInteger* Property = GetBonusProperty();
-	return Property ? FMath::Clamp(Property->Value, 0, MaxBonus) : DefaultBonus;
+	UConfigManager* Manager = ConfigManager.Get();
+	UConfigPropertySection* Root = Manager ? Manager->GetConfigurationRootSection(UInventoryBonusConfig::GetId()) : nullptr;
+	const TObjectPtr<UConfigProperty>* Property = Root ? Root->SectionProperties.Find(Key) : nullptr;
+	return Property ? Property->Get() : nullptr;
 }
 
-void FInventoryBonus::SetBonus(UWorld* World, int32 NewBonus)
+int32 FInventoryBonus::GetConfigInt(const FString& Key, int32 Fallback)
 {
-	if (UConfigPropertyInteger* Property = GetBonusProperty())
+	const UConfigPropertyInteger* Property = Cast<UConfigPropertyInteger>(GetConfigProperty(Key));
+	return Property ? Property->Value : Fallback;
+}
+
+void FInventoryBonus::SetConfigInt(const FString& Key, int32 Value, bool bSaveToFile)
+{
+	if (UConfigPropertyInteger* Property = Cast<UConfigPropertyInteger>(GetConfigProperty(Key)))
 	{
-		Property->Value = FMath::Clamp(NewBonus, 0, MaxBonus);
-		Property->MarkDirty(); // SML saves the .cfg; the MarkConfigurationDirty hook also resizes players
+		Property->Value = Value;
+		if (bSaveToFile)
+		{
+			TGuardValue<bool> Guard(bWritingConfig, true);
+			Property->MarkDirty();
+		}
 	}
-	else
+}
+
+void FInventoryBonus::OnConfigChanged(UWorld* World)
+{
+	if (!World || World->GetNetMode() == NM_Client)
 	{
-		UE_LOG(LogInventoryBonus, Warning, TEXT("Config not registered yet; bonus change ignored"));
+		return; // in multiplayer the host's value counts
 	}
-	ApplyToAllPlayers(World);
+	const int32 MenuValue = FMath::Clamp(GetConfigInt(UInventoryBonusConfig::BonusKey, DefaultBonus), 0, MaxBonus);
+
+	if (AInventoryBonusSubsystem* Subsystem = AInventoryBonusSubsystem::Get(World))
+	{
+		if (MenuValue != Subsystem->GetBonus())
+		{
+			SetBonus(World, MenuValue); // a lowered bonus moves leftovers into a crate
+		}
+	}
+	else if (PolledWorld.Get() != World && MenuValue != GetConfigInt(UInventoryBonusConfig::NewSaveBonusKey, -1))
+	{
+		// Main menu: the value is the bonus for new saves.
+		SetConfigInt(UInventoryBonusConfig::NewSaveBonusKey, MenuValue, true);
+	}
+}
+
+void FInventoryBonus::ShowSaveInConfig(UWorld* World)
+{
+	if (AInventoryBonusSubsystem* Subsystem = AInventoryBonusSubsystem::Get(World))
+	{
+		SetConfigInt(UInventoryBonusConfig::BonusKey, Subsystem->GetBonus(), false);
+		UpdateMenuText(EMenuMode::InSave);
+	}
+}
+
+void FInventoryBonus::OnWorldCleanup(UWorld* World, bool bSessionEnded, bool bCleanupResources)
+{
+	if (!World || !World->IsGameWorld())
+	{
+		return;
+	}
+	if (PolledWorld.Get() == World)
+	{
+		PolledWorld.Reset();
+	}
+	if (ConfigManager.IsValid())
+	{
+		SetConfigInt(UInventoryBonusConfig::BonusKey, GetNewSaveBonus(), false);
+		UpdateMenuText(EMenuMode::MainMenu);
+	}
+}
+
+void FInventoryBonus::UpdateMenuText(EMenuMode Mode, const FInventorySlotBreakdown* Breakdown)
+{
+	UConfigProperty* BreakdownLabel = GetConfigProperty(UInventoryBonusConfig::BreakdownKey);
+	UConfigProperty* BonusProperty = GetConfigProperty(UInventoryBonusConfig::BonusKey);
+	if (!BreakdownLabel || !BonusProperty)
+	{
+		return;
+	}
+
+	switch (Mode)
+	{
+	case EMenuMode::MainMenu:
+		BreakdownLabel->DisplayName = FText::FromString(TEXT("Load a save to see your inventory breakdown."));
+		BonusProperty->DisplayName = FText::FromString(TEXT("Bonus inventory slots (new saves)"));
+		break;
+	case EMenuMode::Client:
+		BreakdownLabel->DisplayName = FText::FromString(TEXT("Multiplayer: the host's bonus is used. Type /invbonus to see your slots."));
+		BonusProperty->DisplayName = FText::FromString(TEXT("Bonus inventory slots (set by the host)"));
+		break;
+	case EMenuMode::InSave:
+		BonusProperty->DisplayName = FText::FromString(TEXT("Bonus inventory slots (this save)"));
+		if (Breakdown && Breakdown->Wanted > 0)
+		{
+			BreakdownLabel->DisplayName = FText::FromString(FString::Printf(
+				TEXT("Your inventory: %d default + %d vanilla upgrades + %d mod upgrades + %d bonus = %d slots"),
+				Breakdown->Default, Breakdown->VanillaUpgrades, Breakdown->ModUpgrades, Breakdown->Bonus, Breakdown->Wanted));
+		}
+		break;
+	}
 }

@@ -3,6 +3,8 @@
 #include "CoreMinimal.h"
 
 class AFGCharacterPlayer;
+class UCommandSender;
+class UConfigProperty;
 class UFGInventoryComponent;
 class UGameInstance;
 class UWorld;
@@ -26,35 +28,55 @@ struct FInventorySlotBreakdown
 	int32 HeldByItems = 0;
 };
 
+/** What happened when the bonus was changed. */
+struct FBonusChangeResult
+{
+	/** Players who got a crate with items that no longer fit. */
+	int32 PlayersWithCrate = 0;
+	/** Items put into those crates. */
+	int32 ItemsInCrates = 0;
+};
+
 /**
  * Keeps every player's main inventory at:
  *     default + vanilla upgrades + other mods' upgrades + Bonus
  *
  * Everything except Bonus is recomputed from the game's own data each time, so
  * buying more upgrades or adding/removing other inventory mods keeps working.
- * Bonus lives in SML's mod config (Mods -> Mod Configuration -> Inventory Bonus),
- * saved by SML to FactoryGame/Configs/InventoryBonus.cfg. The /invbonus command edits the same value.
+ * Bonus is stored per save (AInventoryBonusSubsystem). The mod config menu and /invbonus
+ * edit the loaded save's bonus; in the main menu the config holds the bonus for new saves.
  */
 class FInventoryBonus
 {
 public:
-	/** Bonus used the first time the mod runs (before you ever change it). */
+	/** Bonus a new save starts with until you change the "new saves" value. */
 	static constexpr int32 DefaultBonus = 1000;
 	/** Safety cap: very large inventories make the inventory UI slow. */
 	static constexpr int32 MaxBonus = 20000;
 
 	static void RegisterHooks();
 
-	static int32 GetBonus();
-	/** Writes the new bonus to the mod config (SML saves it) and resizes every player. Server only. */
-	static void SetBonus(UWorld* World, int32 NewBonus);
+	/** The bonus for this world's save (server), or the "new saves" value otherwise. */
+	static int32 GetBonus(UWorld* World);
+	/** Bonus for saves that don't have one stored yet. */
+	static int32 GetNewSaveBonus();
+	/**
+	 * Server only. Stores the bonus in the save and resizes every player. When shrinking, items
+	 * in removed slots are moved into free slots, and whatever doesn't fit goes into a crate.
+	 */
+	static FBonusChangeResult SetBonus(UWorld* World, int32 NewBonus);
+
+	/** Whether this sender may change the bonus. OutReason explains a refusal. */
+	static bool CanChangeBonus(UCommandSender* Sender, FString& OutReason);
 
 	static void ApplyToAllPlayers(UWorld* World);
-	static void ApplyToPlayer(AFGCharacterPlayer* Player);
-
 	static FInventorySlotBreakdown GetBreakdown(AFGCharacterPlayer* Player);
 
 private:
+	static void ApplyToPlayer(AFGCharacterPlayer* Player);
+	/** User-initiated shrink: crate first, then shrink, then pull back what fits. Returns items left in the crate. */
+	static int32 ShrinkWithCrate(AFGCharacterPlayer* Player, UFGInventoryComponent* Inventory, int32 Wanted);
+
 	/** Fills OutBreakdown (except Current/HeldByItems). Returns false if the game data isn't ready yet. */
 	static bool ComputeBreakdown(AFGCharacterPlayer* Player, FInventorySlotBreakdown& OutBreakdown);
 	/** Never shrink past a slot that still holds items. */
@@ -64,12 +86,26 @@ private:
 
 	/** Registers UInventoryBonusConfig with SML so it appears in Mods -> Mod Configuration. */
 	static void RegisterConfig(UGameInstance* GameInstance);
-	/** The live "Bonus" value from SML's config, or null before the config is registered. */
-	static class UConfigPropertyInteger* GetBonusProperty();
+	/** A property of the live mod config, or null before the config is registered. */
+	static UConfigProperty* GetConfigProperty(const FString& Key);
+	static int32 GetConfigInt(const FString& Key, int32 Fallback);
+	/** Sets an integer config value. bSaveToFile also writes the .cfg. */
+	static void SetConfigInt(const FString& Key, int32 Value, bool bSaveToFile);
+
+	/** Mod config changed (menu or file): route the bonus to the save, or to "new saves" in the main menu. */
+	static void OnConfigChanged(UWorld* World);
+	/** Server, after a save is loaded: show that save's bonus in the mod config. */
+	static void ShowSaveInConfig(UWorld* World);
+	/** A game world is closing: the config goes back to showing the "new saves" bonus. */
+	static void OnWorldCleanup(UWorld* World, bool bSessionEnded, bool bCleanupResources);
+
+	enum class EMenuMode { MainMenu, InSave, Client };
+	/** Rewrites the config menu's labels. Breakdown is used for InSave. */
+	static void UpdateMenuText(EMenuMode Mode, const FInventorySlotBreakdown* Breakdown = nullptr);
 
 	static TWeakObjectPtr<class UConfigManager> ConfigManager;
 	/** World that already has the once-per-second "did the bonus change?" timer. */
 	static TWeakObjectPtr<UWorld> PolledWorld;
-	/** Bonus value used by the last ApplyToAllPlayers. */
-	static int32 LastAppliedBonus;
+	/** True while we change the config ourselves, so our own change handler ignores it. */
+	static bool bWritingConfig;
 };
