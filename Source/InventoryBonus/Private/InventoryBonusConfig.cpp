@@ -92,7 +92,11 @@ namespace
 			return Native;
 		}
 
-		UConfigProperty* Menu = NewObject<UConfigProperty>(Outer, BlueprintClass, Native->GetFName());
+		// Unique name: the native property may live in the same outer under its name (e.g. RootSection),
+		// and UE refuses to replace an object with one of a different class. The name isn't used anyway;
+		// sections look properties up by their map key.
+		UConfigProperty* Menu = NewObject<UConfigProperty>(Outer, BlueprintClass,
+			MakeUniqueObjectName(Outer, BlueprintClass, FName(*(Native->GetName() + TEXT("_Menu")))));
 		Menu->DisplayName = Native->DisplayName;
 		Menu->Tooltip = Native->Tooltip;
 		Menu->bRequiresWorldReload = Native->bRequiresWorldReload;
