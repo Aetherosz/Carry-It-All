@@ -68,6 +68,8 @@ UInventoryBonusConfig::UInventoryBonusConfig()
 	AnyPlayer->DefaultValue = false;
 	AnyPlayer->Value = false;
 	AnyPlayer->bRequiresWorldReload = false;
+	// Not in the menu: only a dedicated server reads it, and a server has no menu (set it in its .cfg).
+	AnyPlayer->bHidden = true;
 	RootSection->SectionProperties.Add(AnyPlayerCanChangeKey, AnyPlayer);
 
 	UConfigPropertyInteger* NewSaveBonus = CreateDefaultSubobject<UConfigPropertyInteger>(TEXT("NewSaveBonus"));

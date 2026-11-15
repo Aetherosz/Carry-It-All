@@ -19,7 +19,7 @@ Every part except the bonus is recalculated from the game's own data on spawn, o
 Open **Mods → Mod Configuration → Carry It All**.
 - **In a save** (pause menu): the first line shows your breakdown, e.g. `Default 18 / Unlocked 12 / Bonus 1000 = 1030 slots` (a `Mods` part appears only if another inventory mod adds slots). **Bonus inventory slots (this save)** changes that save's bonus. The second line shows how many items you carry and the lowest bonus that keeps them all. While you change the value nothing happens yet: it's applied once it has stayed the same for 2 seconds (in single player, when you close the pause menu, because the game is paused). If the new value is too low for what you carry, the second line turns into a loud **!!! WARNING !!!** with roughly how many stacks will go into a crate.
 - **In the main menu**: **Bonus inventory slots (new saves)** is the bonus a save starts with the first time it's loaded with this mod.
-- **Dedicated servers: any player can change the bonus**: see Multiplayer below.
+- Dedicated servers have one more setting, `AnyPlayerCanChange`, which is only in the config file (a server has no menu); see Multiplayer below.
 - This uses SML's built-in mod config system, so no other settings mod is required.
 
 ## In-game commands (chat)
@@ -44,7 +44,7 @@ The bonus is stored in the save file. Saves from v1.0 (which used one bonus for 
 ## Multiplayer
 - The bonus applies to every player. Everyone needs the mod installed.
 - **Single player / hosting:** only the host can change it.
-- **Dedicated server:** by default, only the server console can change the bonus (players can still type `/invbonus` to see their breakdown). To let every player change it, turn on **Dedicated servers: any player can change the bonus** in the server's `FactoryGame/Configs/InventoryBonus.cfg` (`"AnyPlayerCanChange": true`). Only the server's setting counts.
+- **Dedicated server:** by default, only the server console can change the bonus (players can still type `/invbonus` to see their breakdown). To let every player change it, set `"AnyPlayerCanChange": true` in the server's `FactoryGame/Configs/InventoryBonus.cfg`. Only the server's setting counts.
 
 ## Uninstalling
 Before you remove the mod, run `/invbonus 0` in each save you care about. Anything that no longer fits goes into a crate, so no items are left in slots that disappear.

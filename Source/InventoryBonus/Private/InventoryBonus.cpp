@@ -663,7 +663,7 @@ void FInventoryBonus::UpdateMenuText(EMenuMode Mode, AFGCharacterPlayer* LocalPl
 	}
 	else if (PendingMenuValue >= 0)
 	{
-		Status = FString::Printf(TEXT("Everything fits (%d stacks). Applies 2 s after you stop, or when you close the menu."),
+		Status = FString::Printf(TEXT("Carrying %d stacks. Everything fits."),
 			UsedSlots);
 	}
 	else
