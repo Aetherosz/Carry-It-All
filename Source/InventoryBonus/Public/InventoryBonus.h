@@ -92,20 +92,38 @@ private:
 	/** Sets an integer config value. bSaveToFile also writes the .cfg. */
 	static void SetConfigInt(const FString& Key, int32 Value, bool bSaveToFile);
 
-	/** Mod config changed (menu or file): route the bonus to the save, or to "new saves" in the main menu. */
+	/**
+	 * Mod config changed (menu or file). In the main menu it becomes the "new saves" bonus right away.
+	 * In a save it only becomes pending: the menu shows a warning, and the once-per-second poll applies
+	 * it once the value has stopped changing for MenuApplyDelay seconds. Dragging the value therefore
+	 * shrinks (and fills a crate) once, not at every step of the drag.
+	 */
 	static void OnConfigChanged(UWorld* World);
+	/** Poll (server, once per second while the game runs): applies a settled pending value and refreshes the menu text. */
+	static void PollMenu(UWorld* World);
 	/** Server, after a save is loaded: show that save's bonus in the mod config. */
 	static void ShowSaveInConfig(UWorld* World);
 	/** A game world is closing: the config goes back to showing the "new saves" bonus. */
 	static void OnWorldCleanup(UWorld* World, bool bSessionEnded, bool bCleanupResources);
+	/** Tells every player in chat what a bonus change did. */
+	static void AnnounceChange(UWorld* World, const FBonusChangeResult& Result);
 
 	enum class EMenuMode { MainMenu, InSave, Client };
-	/** Rewrites the config menu's labels. Breakdown is used for InSave. */
-	static void UpdateMenuText(EMenuMode Mode, const FInventorySlotBreakdown* Breakdown = nullptr);
+	/** Rewrites the config menu's labels. LocalPlayer is used for InSave (breakdown, items carried, warning). */
+	static void UpdateMenuText(EMenuMode Mode, AFGCharacterPlayer* LocalPlayer = nullptr);
+	/** The player whose screen shows the menu (single player / host), or null (dedicated server). */
+	static AFGCharacterPlayer* GetLocalPlayer(UWorld* World);
+
+	/** How long a menu value must stay unchanged before it is applied to the save. */
+	static constexpr double MenuApplyDelay = 2.0;
 
 	static TWeakObjectPtr<class UConfigManager> ConfigManager;
 	/** World that already has the once-per-second "did the bonus change?" timer. */
 	static TWeakObjectPtr<UWorld> PolledWorld;
 	/** True while we change the config ourselves, so our own change handler ignores it. */
 	static bool bWritingConfig;
+	/** Menu value waiting to be applied to the save, or -1. */
+	static int32 PendingMenuValue;
+	/** FPlatformTime::Seconds() of the last change to PendingMenuValue. */
+	static double PendingSince;
 };

@@ -14,6 +14,7 @@
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "FGCharacterPlayer.h"
+#include "FGChatManager.h"
 #include "FGCrate.h"
 #include "FGInventoryComponent.h"
 #include "FGItemPickup_Spawnable.h"
@@ -29,6 +30,8 @@ DEFINE_LOG_CATEGORY_STATIC(LogInventoryBonus, Log, All);
 TWeakObjectPtr<UConfigManager> FInventoryBonus::ConfigManager;
 TWeakObjectPtr<UWorld> FInventoryBonus::PolledWorld;
 bool FInventoryBonus::bWritingConfig = false;
+int32 FInventoryBonus::PendingMenuValue = -1;
+double FInventoryBonus::PendingSince = 0.0;
 
 // ---------------------------------------------------------------------------
 // Hooks
@@ -105,11 +108,13 @@ void FInventoryBonus::RegisterHooks()
 					Commands->RegisterCommand(TEXT("InventoryBonus"), AInventoryBonusCommand::StaticClass());
 				}
 
-				// Safety net for menu edits: check every second whether the menu value
-				// differs from the save's bonus, and apply it if so.
+				// Applies menu edits once they settle, and keeps the menu's item count current.
+				// World timers stop while single player is paused, so there a menu edit is
+				// applied after the pause menu closes.
+				PendingMenuValue = -1;
 				FTimerHandle PollHandle;
 				World->GetTimerManager().SetTimer(PollHandle,
-					FTimerDelegate::CreateWeakLambda(World, [World]() { OnConfigChanged(World); }),
+					FTimerDelegate::CreateWeakLambda(World, [World]() { PollMenu(World); }),
 					1.0f, true);
 			}
 
@@ -227,8 +232,7 @@ void FInventoryBonus::ApplyToPlayer(AFGCharacterPlayer* Player)
 	}
 	if (Player->IsLocallyControlled())
 	{
-		const FInventorySlotBreakdown Breakdown = GetBreakdown(Player);
-		UpdateMenuText(EMenuMode::InSave, &Breakdown);
+		UpdateMenuText(EMenuMode::InSave, Player);
 	}
 }
 
@@ -463,15 +467,64 @@ void FInventoryBonus::OnConfigChanged(UWorld* World)
 
 	if (AInventoryBonusSubsystem* Subsystem = AInventoryBonusSubsystem::Get(World))
 	{
-		if (MenuValue != Subsystem->GetBonus())
+		// In a save: never apply straight away. The menu's number box reports every value it
+		// passes while being dragged; applying each one would shrink (and crate) many times.
+		const int32 NewPending = MenuValue == Subsystem->GetBonus() ? -1 : MenuValue;
+		if (NewPending != PendingMenuValue)
 		{
-			SetBonus(World, MenuValue); // a lowered bonus moves leftovers into a crate
+			PendingMenuValue = NewPending;
+			PendingSince = FPlatformTime::Seconds();
 		}
+		UpdateMenuText(EMenuMode::InSave, GetLocalPlayer(World));
 	}
 	else if (PolledWorld.Get() != World && MenuValue != GetConfigInt(UInventoryBonusConfig::NewSaveBonusKey, -1))
 	{
-		// Main menu: the value is the bonus for new saves.
+		// Main menu: the value is the bonus for new saves. Nothing to resize, so it's stored right away.
 		SetConfigInt(UInventoryBonusConfig::NewSaveBonusKey, MenuValue, true);
+	}
+}
+
+void FInventoryBonus::PollMenu(UWorld* World)
+{
+	if (!World || World->GetNetMode() == NM_Client)
+	{
+		return;
+	}
+	OnConfigChanged(World); // safety net: catches menu changes the hook didn't see
+
+	if (PendingMenuValue >= 0 && FPlatformTime::Seconds() - PendingSince >= MenuApplyDelay)
+	{
+		const int32 Value = PendingMenuValue;
+		PendingMenuValue = -1;
+		AnnounceChange(World, SetBonus(World, Value)); // a lowered bonus moves leftovers into one crate
+	}
+	else
+	{
+		// Keeps "items carried" current, so the menu is right whenever it's opened.
+		UpdateMenuText(EMenuMode::InSave, GetLocalPlayer(World));
+	}
+}
+
+void FInventoryBonus::AnnounceChange(UWorld* World, const FBonusChangeResult& Result)
+{
+	AFGChatManager* Chat = AFGChatManager::Get(World);
+	if (!Chat)
+	{
+		return;
+	}
+	FChatMessageStruct Message;
+	Message.MessageType = EFGChatMessageType::CMT_SystemMessage;
+	Message.MessageSender = FText::FromString(TEXT("Inventory Bonus"));
+	Message.MessageText = FText::FromString(FString::Printf(TEXT("Inventory bonus for this save set to +%d."), GetBonus(World)));
+	Chat->BroadcastChatMessage(Message);
+
+	if (Result.PlayersWithCrate > 0)
+	{
+		Message.MessageSenderColor = FLinearColor::Yellow;
+		Message.MessageText = FText::FromString(FString::Printf(
+			TEXT("%d item(s) didn't fit and were put in a crate at the feet of %d player(s)."),
+			Result.ItemsInCrates, Result.PlayersWithCrate));
+		Chat->BroadcastChatMessage(Message);
 	}
 }
 
@@ -480,7 +533,7 @@ void FInventoryBonus::ShowSaveInConfig(UWorld* World)
 	if (AInventoryBonusSubsystem* Subsystem = AInventoryBonusSubsystem::Get(World))
 	{
 		SetConfigInt(UInventoryBonusConfig::BonusKey, Subsystem->GetBonus(), false);
-		UpdateMenuText(EMenuMode::InSave);
+		UpdateMenuText(EMenuMode::InSave, GetLocalPlayer(World));
 	}
 }
 
@@ -493,6 +546,7 @@ void FInventoryBonus::OnWorldCleanup(UWorld* World, bool bSessionEnded, bool bCl
 	if (PolledWorld.Get() == World)
 	{
 		PolledWorld.Reset();
+		PendingMenuValue = -1; // an edit that never settled is dropped with the world
 	}
 	if (ConfigManager.IsValid())
 	{
@@ -501,7 +555,13 @@ void FInventoryBonus::OnWorldCleanup(UWorld* World, bool bSessionEnded, bool bCl
 	}
 }
 
-void FInventoryBonus::UpdateMenuText(EMenuMode Mode, const FInventorySlotBreakdown* Breakdown)
+AFGCharacterPlayer* FInventoryBonus::GetLocalPlayer(UWorld* World)
+{
+	APlayerController* Controller = World ? World->GetFirstPlayerController() : nullptr;
+	return (Controller && Controller->IsLocalController()) ? Cast<AFGCharacterPlayer>(Controller->GetPawn()) : nullptr;
+}
+
+void FInventoryBonus::UpdateMenuText(EMenuMode Mode, AFGCharacterPlayer* LocalPlayer)
 {
 	UConfigProperty* BreakdownLabel = GetConfigProperty(UInventoryBonusConfig::BreakdownKey);
 	UConfigProperty* BonusProperty = GetConfigProperty(UInventoryBonusConfig::BonusKey);
@@ -515,19 +575,64 @@ void FInventoryBonus::UpdateMenuText(EMenuMode Mode, const FInventorySlotBreakdo
 	case EMenuMode::MainMenu:
 		BreakdownLabel->DisplayName = FText::FromString(TEXT("Load a save to see your inventory breakdown."));
 		BonusProperty->DisplayName = FText::FromString(TEXT("Bonus inventory slots (new saves)"));
-		break;
+		return;
 	case EMenuMode::Client:
 		BreakdownLabel->DisplayName = FText::FromString(TEXT("Multiplayer: the host's bonus is used. Type /invbonus to see your slots."));
 		BonusProperty->DisplayName = FText::FromString(TEXT("Bonus inventory slots (set by the host)"));
-		break;
+		return;
 	case EMenuMode::InSave:
-		BonusProperty->DisplayName = FText::FromString(TEXT("Bonus inventory slots (this save)"));
-		if (Breakdown && Breakdown->Wanted > 0)
-		{
-			BreakdownLabel->DisplayName = FText::FromString(FString::Printf(
-				TEXT("Your inventory: %d default + %d vanilla upgrades + %d mod upgrades + %d bonus = %d slots"),
-				Breakdown->Default, Breakdown->VanillaUpgrades, Breakdown->ModUpgrades, Breakdown->Bonus, Breakdown->Wanted));
-		}
 		break;
 	}
+
+	BonusProperty->DisplayName = FText::FromString(TEXT("Bonus inventory slots (this save)"));
+	const UFGInventoryComponent* Inventory = LocalPlayer ? LocalPlayer->GetInventory() : nullptr;
+	FInventorySlotBreakdown B;
+	if (!Inventory || !ComputeBreakdown(LocalPlayer, B))
+	{
+		return;
+	}
+
+	// What you're carrying right now.
+	int32 UsedSlots = 0;
+	int32 Items = 0;
+	for (int32 Index = 0; Index < Inventory->GetSizeLinear(); ++Index)
+	{
+		FInventoryStack Stack;
+		if (Inventory->GetStackFromIndex(Index, Stack) && Stack.HasItems())
+		{
+			++UsedSlots;
+			Items += Stack.NumItems;
+		}
+	}
+	const int32 Base = B.Default + B.VanillaUpgrades + B.ModUpgrades;
+	const int32 LowestSafeBonus = FMath::Max(0, UsedSlots - Base);
+	const FString Carrying = FString::Printf(TEXT("You carry %d items in %d slots."), Items, UsedSlots);
+
+	if (PendingMenuValue < 0)
+	{
+		BreakdownLabel->DisplayName = FText::FromString(FString::Printf(
+			TEXT("Your inventory: %d default + %d vanilla upgrades + %d mod upgrades + %d bonus = %d slots. %s %s"),
+			B.Default, B.VanillaUpgrades, B.ModUpgrades, B.Bonus, B.Wanted, *Carrying,
+			LowestSafeBonus > 0
+				? *FString::Printf(TEXT("A bonus below +%d puts items in a crate."), LowestSafeBonus)
+				: TEXT("Any bonus fits everything you carry.")));
+		return;
+	}
+
+	const int32 NewSlots = FMath::Max(1, Base + PendingMenuValue);
+	if (PendingMenuValue >= LowestSafeBonus)
+	{
+		BreakdownLabel->DisplayName = FText::FromString(FString::Printf(
+			TEXT("New bonus +%d = %d slots. %s Everything fits. Applies 2 seconds after you stop changing it (single player: when you close the menu)."),
+			PendingMenuValue, NewSlots, *Carrying));
+		return;
+	}
+
+	// Lowering below what you carry: make it impossible to miss.
+	const int32 StacksToCrate = UsedSlots - NewSlots;
+	BreakdownLabel->DisplayName = FText::FromString(FString::Printf(
+		TEXT("!!! WARNING !!! +%d gives only %d slots. %s About %d stacks will go into a crate at your feet. Keep it at +%d or more to keep everything on you."),
+		PendingMenuValue, NewSlots, *Carrying, StacksToCrate, LowestSafeBonus));
+	BonusProperty->DisplayName = FText::FromString(FString::Printf(
+		TEXT("Bonus inventory slots (this save) - !!! %d stacks to a crate !!!"), StacksToCrate));
 }

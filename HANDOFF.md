@@ -24,14 +24,16 @@ If the copied binaries won't load, delete `Binaries` and `Intermediate` in the p
 
 The source of truth for the mod is the GitHub repo `Aetherosz/Inventory-Bonus`. Clone it over `<project>\Mods\InventoryBonus`, or replace that folder with the clone. The folder must be named `InventoryBonus` to match the plugin name.
 
-## Status (2026-11-14)
+## Status (2026-11-15)
 - **v1.0.0 works in-game.** In a real save, `/invbonus` printed `18 default + 12 vanilla upgrades + 200 mod upgrades + 1000 bonus = 1230 slots`.
+- **v1.1.1** (2026-11-15): fixes the menu drag bug (dragging the value down used to shrink and crate at every step) and adds the items-carried line and the low-bonus warning in the menu.
 - **v1.1.0 builds and packages cleanly** (editor build and Shipping package, Steam and Epic DLLs). It has **not been tested in-game yet.** To verify:
   - A v1.0 save keeps its bonus after updating (migration from the old global value).
   - Two saves keep different bonuses.
   - The breakdown line at the top of the settings menu renders. It's an empty `UConfigPropertySection` whose title is rewritten at runtime. If SML doesn't draw it as a label, fall back to putting the breakdown in the Bonus tooltip.
   - Lowering the bonus to 0 with full trailing slots spawns a crate with the leftovers, and chat reports the count.
-  - Changing the value live in the pause-menu settings (applies within about 1 s, crate included).
+  - Changing the value in the pause-menu settings: nothing happens while dragging; it applies once, 2 s after the value settles (single player: after closing the menu), with one crate at most.
+  - **v1.1.1:** the breakdown line shows items carried and the lowest safe bonus, and turns into a "!!! WARNING !!!" with the stack count when the pending value is too low. Check that SML redraws the label while the menu is open. If it only updates on reopening, the warning still shows on reopen, before the value is applied.
   - The main menu shows and edits the "(new saves)" value.
   - Multiplayer: a client can't change the bonus; on a dedicated server only the console can, unless `AnyPlayerCanChange` is on.
 - The author is set to `Aetherosz`.
@@ -53,7 +55,7 @@ total slots = default + vanilla schematic slot unlocks + other mods' schematic s
 ## Code map
 | File | Role |
 |---|---|
-| `InventoryBonus.uplugin` | Plugin descriptor, v1.1.0. Depends on SML `^3.12.0`, GameVersion `>=491125` |
+| `InventoryBonus.uplugin` | Plugin descriptor, v1.1.1. Depends on SML `^3.12.0`, GameVersion `>=491125` |
 | `Resources/Icon128.png` | Mod icon |
 | `Config/AccessTransformers.ini` | `Friend` access so the mod can read the private `AFGCharacterPlayer::mDefaultPlayerInventorySlots` |
 | `Private/InventoryBonus.cpp` | All hooks, the slot math, the crate shrink, and the config sync |
@@ -65,7 +67,7 @@ total slots = default + vanilla schematic slot unlocks + other mods' schematic s
 Hooks in `InventoryBonus.cpp`. All of them except the config registration are inside `#if !WITH_EDITOR`, so **the editor build never compiles them**. Only the Shipping/Alpakit build checks them.
 - `UFGInventoryComponent::Resize` (before): for a player's main inventory, replaces NewSize with the computed total.
 - `AFGCharacterPlayer::BeginPlay` (virtual, after):
-  - Once per world on the server: registers the subsystem, shows the save's bonus in the config, registers the chat command, and starts a 1 s poll for config changes.
+  - Once per world on the server: registers the subsystem, shows the save's bonus in the config, registers the chat command, and starts a 1 s poll (PollMenu). Menu edits in a save only become pending (OnConfigChanged); PollMenu applies them once unchanged for 2 s (MenuApplyDelay), because SML's number box reports every value while dragging. World timers pause with single player, so there it applies after the menu closes.
   - Applies the size now, and again at 2 s and 10 s.
 - `AFGSchematicManager::GiveAccessToSchematic(s)` (after): re-applies the size to all players.
 - `UConfigManager::MarkConfigurationDirty` (after): routes the menu value to the save, or to "new saves" in the main menu.
@@ -136,7 +138,7 @@ The output is `<project>\Saved\ArchivedPlugins\InventoryBonus\InventoryBonus-Win
 5. Log: `%LOCALAPPDATA%\FactoryGame\Saved\Logs\FactoryGame.log`. Search it for `InventoryBonus`.
 
 ## Possible next steps
-- Test v1.1.0 in-game (see Status).
+- Test v1.1.0 and v1.1.1 in-game (see Status).
 - Publish to ficsit.app:
   1. Run Alpakit Release, which builds the multi-target zip including the Linux dedicated server.
   2. Upload the zip.
