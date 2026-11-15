@@ -4,6 +4,8 @@
 #include "Configuration/Properties/ConfigPropertyBool.h"
 #include "Configuration/Properties/ConfigPropertyInteger.h"
 #include "Configuration/Properties/ConfigPropertySection.h"
+#include "Configuration/Properties/WidgetExtension/CP_Integer.h"
+#include "Configuration/Properties/WidgetExtension/CP_Section.h"
 
 #define LOCTEXT_NAMESPACE "InventoryBonus"
 
@@ -108,6 +110,13 @@ namespace
 			UConfigPropertyInteger* MenuInt = CastChecked<UConfigPropertyInteger>(Menu);
 			MenuInt->DefaultValue = Int->DefaultValue;
 			MenuInt->Value = Int->Value;
+			if (UCP_Integer* Widget = Cast<UCP_Integer>(MenuInt))
+			{
+				// Drag or type. SML's default is a text box with min = max = 0.
+				Widget->WidgetType = ECP_IntegerWidgetType::CPI_Spinbox;
+				Widget->MinValue = 0;
+				Widget->MaxValue = FInventoryBonus::MaxBonus;
+			}
 		}
 		else if (const UConfigPropertyBool* Bool = Cast<UConfigPropertyBool>(Native))
 		{
@@ -118,6 +127,14 @@ namespace
 		else if (const UConfigPropertySection* Section = Cast<UConfigPropertySection>(Native))
 		{
 			UConfigPropertySection* MenuSection = CastChecked<UConfigPropertySection>(Menu);
+			if (UCP_Section* Widget = Cast<UCP_Section>(MenuSection))
+			{
+				// SML's default is one horizontal row with a scroll bar. An empty section (the
+				// breakdown label) shows its text as a header.
+				Widget->WidgetType = ECP_SectionWidgetType::CPS_Vertical;
+				Widget->HasHeader = Section->SectionProperties.IsEmpty();
+				Widget->HeaderText = Native->DisplayName;
+			}
 			for (const TPair<FString, TObjectPtr<UConfigProperty>>& Child : Section->SectionProperties)
 			{
 				MenuSection->SectionProperties.Add(Child.Key, Child.Value ? ToMenuProperty(Child.Value, MenuSection) : nullptr);

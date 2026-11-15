@@ -10,6 +10,8 @@
 #include "Configuration/Properties/ConfigPropertyBool.h"
 #include "Configuration/Properties/ConfigPropertyInteger.h"
 #include "Configuration/Properties/ConfigPropertySection.h"
+#include "Configuration/Properties/WidgetExtension/CP_Section.h"
+#include "Misc/ScopeExit.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -49,13 +51,21 @@ void FInventoryBonus::RegisterHooks()
 	SUBSCRIBE_METHOD_AFTER(UConfigManager::MarkConfigurationDirty,
 		[](UConfigManager* Self, const FConfigId& Id)
 		{
-			if (!bWritingConfig && Id == UInventoryBonusConfig::GetId())
+			if (Id != UInventoryBonusConfig::GetId())
+			{
+				return;
+			}
+			if (!bWritingConfig)
 			{
 				if (UGameInstance* GameInstance = Self->GetGameInstance())
 				{
 					OnConfigChanged(GameInstance->GetWorld());
 				}
 			}
+			// Write it now. SML otherwise saves on a timer that doesn't run while the game is paused,
+			// and its flush at shutdown crashes (its mod info subsystem is already gone by then), so
+			// "change a value in the pause menu, then Exit to Desktop" would crash the game.
+			Self->FlushPendingSaves();
 		});
 
 	// Every resize of a player's main inventory (spawn, load, unlocks, other code)
@@ -570,6 +580,14 @@ void FInventoryBonus::UpdateMenuText(EMenuMode Mode, AFGCharacterPlayer* LocalPl
 	{
 		return;
 	}
+	// The menu draws the breakdown label as a section header.
+	ON_SCOPE_EXIT
+	{
+		if (UCP_Section* Header = Cast<UCP_Section>(BreakdownLabel))
+		{
+			Header->HeaderText = BreakdownLabel->DisplayName;
+		}
+	};
 
 	switch (Mode)
 	{
