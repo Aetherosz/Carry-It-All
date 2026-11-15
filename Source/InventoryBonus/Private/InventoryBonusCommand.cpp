@@ -29,9 +29,7 @@ namespace
 	void PrintBreakdown(UCommandSender* Sender, AFGCharacterPlayer* Player)
 	{
 		const FInventorySlotBreakdown B = FInventoryBonus::GetBreakdown(Player);
-		Sender->SendChatMessage(FString::Printf(
-			TEXT("Inventory: %d default + %d vanilla upgrades + %d mod upgrades + %d bonus = %d slots"),
-			B.Default, B.VanillaUpgrades, B.ModUpgrades, B.Bonus, B.Wanted));
+		Sender->SendChatMessage(FInventoryBonus::DescribeSlots(B, B.Bonus, B.Wanted));
 		if (B.HeldByItems > 0)
 		{
 			Sender->SendChatMessage(FString::Printf(

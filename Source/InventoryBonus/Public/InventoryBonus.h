@@ -74,6 +74,8 @@ public:
 
 	static void ApplyToAllPlayers(UWorld* World);
 	static FInventorySlotBreakdown GetBreakdown(AFGCharacterPlayer* Player);
+	/** "Default 18 / Unlocked 12 / Mods 200 / Bonus 1000 = 1230 slots". Mods is left out when 0. */
+	static FString DescribeSlots(const FInventorySlotBreakdown& Breakdown, int32 Bonus, int32 Total);
 
 private:
 	static void ApplyToPlayer(AFGCharacterPlayer* Player);

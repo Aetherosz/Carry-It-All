@@ -17,7 +17,7 @@ Every part except the bonus is recalculated from the game's own data on spawn, o
 
 ## Settings menu
 Open **Mods → Mod Configuration → Inventory Bonus**.
-- **In a save** (pause menu): the top line shows your breakdown, e.g. `18 default + 12 vanilla upgrades + 200 mod upgrades + 1000 bonus = 1230 slots`. **Bonus inventory slots (this save)** changes that save's bonus. The top line also shows how many items you carry and the lowest bonus that keeps them all. While you change the value nothing happens yet: it's applied once it has stayed the same for 2 seconds (in single player, when you close the pause menu, because the game is paused). If the new value is too low for what you carry, the top line turns into a loud **!!! WARNING !!!** with roughly how many stacks will go into a crate.
+- **In a save** (pause menu): the first line shows your breakdown, e.g. `Default 18 / Unlocked 12 / Bonus 1000 = 1030 slots` (a `Mods` part appears only if another inventory mod adds slots). **Bonus inventory slots (this save)** changes that save's bonus. The second line shows how many items you carry and the lowest bonus that keeps them all. While you change the value nothing happens yet: it's applied once it has stayed the same for 2 seconds (in single player, when you close the pause menu, because the game is paused). If the new value is too low for what you carry, the second line turns into a loud **!!! WARNING !!!** with roughly how many stacks will go into a crate.
 - **In the main menu**: **Bonus inventory slots (new saves)** is the bonus a save starts with the first time it's loaded with this mod.
 - **Dedicated servers: any player can change the bonus**: see Multiplayer below.
 - This uses SML's built-in mod config system, so no other settings mod is required.

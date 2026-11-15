@@ -209,6 +209,14 @@ AFGCharacterPlayer* FInventoryBonus::GetOwningPlayer(const UFGInventoryComponent
 	return (Player && Player->GetInventory() == Inventory) ? Player : nullptr;
 }
 
+FString FInventoryBonus::DescribeSlots(const FInventorySlotBreakdown& Breakdown, int32 Bonus, int32 Total)
+{
+	// Mods only shows up when another inventory mod adds slots; normally there's none.
+	const FString Mods = Breakdown.ModUpgrades != 0 ? FString::Printf(TEXT(" / Mods %d"), Breakdown.ModUpgrades) : FString();
+	return FString::Printf(TEXT("Default %d / Unlocked %d%s / Bonus %d = %d slots"),
+		Breakdown.Default, Breakdown.VanillaUpgrades, *Mods, Bonus, Total);
+}
+
 FInventorySlotBreakdown FInventoryBonus::GetBreakdown(AFGCharacterPlayer* Player)
 {
 	FInventorySlotBreakdown Breakdown;
@@ -636,9 +644,11 @@ void FInventoryBonus::UpdateMenuText(EMenuMode Mode, AFGCharacterPlayer* LocalPl
 	const int32 ShownSlots = FMath::Max(1, Base + ShownBonus);
 
 	// Line 1: where the slots come from (with the value being picked, while it's pending).
-	const FString Slots = FString::Printf(TEXT("Slots: %d default + %d vanilla + %d mods + %d bonus = %d%s"),
-		B.Default, B.VanillaUpgrades, B.ModUpgrades, ShownBonus, ShownSlots,
-		PendingMenuValue >= 0 ? *FString::Printf(TEXT("  (now %d)"), B.Wanted) : TEXT(""));
+	FString Slots = DescribeSlots(B, ShownBonus, ShownSlots);
+	if (PendingMenuValue >= 0)
+	{
+		Slots += FString::Printf(TEXT("  (now %d)"), B.Wanted);
+	}
 
 	// Line 2: what you carry, and what the new value would do to it.
 	FString Status;
