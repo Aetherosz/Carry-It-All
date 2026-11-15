@@ -10,7 +10,6 @@
 #include "Configuration/Properties/ConfigPropertyBool.h"
 #include "Configuration/Properties/ConfigPropertyInteger.h"
 #include "Configuration/Properties/ConfigPropertySection.h"
-#include "Configuration/Properties/WidgetExtension/CP_Section.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -588,19 +587,11 @@ void FInventoryBonus::UpdateMenuText(EMenuMode Mode, AFGCharacterPlayer* LocalPl
 	{
 		return;
 	}
-	// The menu shows each label as a one-line section header, so keep each line short.
+	// The labels (UInventoryBonusLabel) redraw their DisplayName every frame.
 	const auto SetLines = [Line1, Line2](const FString& First, const FString& Second)
 	{
-		const auto SetLine = [](UConfigProperty* Line, const FString& Text)
-		{
-			Line->DisplayName = FText::FromString(Text);
-			if (UCP_Section* Header = Cast<UCP_Section>(Line))
-			{
-				Header->HeaderText = FText::GetEmpty(); // the header shows "{HeaderText} ({DisplayName})", or just DisplayName when HeaderText is empty
-			}
-		};
-		SetLine(Line1, First);
-		SetLine(Line2, Second);
+		Line1->DisplayName = FText::FromString(First);
+		Line2->DisplayName = FText::FromString(Second);
 	};
 
 	switch (Mode)

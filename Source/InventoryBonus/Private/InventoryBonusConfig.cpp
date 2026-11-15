@@ -6,6 +6,7 @@
 #include "Configuration/Properties/ConfigPropertySection.h"
 #include "Configuration/Properties/WidgetExtension/CP_Integer.h"
 #include "Configuration/Properties/WidgetExtension/CP_Section.h"
+#include "InventoryBonusLabel.h"
 
 #define LOCTEXT_NAMESPACE "InventoryBonus"
 
@@ -32,14 +33,13 @@ UInventoryBonusConfig::UInventoryBonusConfig()
 
 	RootSection = CreateDefaultSubobject<UConfigPropertySection>(TEXT("RootSection"));
 
-	// Label only: its title is rewritten at runtime with the live breakdown.
-	UConfigPropertySection* Breakdown = CreateDefaultSubobject<UConfigPropertySection>(TEXT("Breakdown"));
+	// Text lines: rewritten at runtime with the live breakdown, what you carry and the crate warning.
+	UInventoryBonusLabel* Breakdown = CreateDefaultSubobject<UInventoryBonusLabel>(TEXT("Breakdown"));
 	Breakdown->DisplayName = LOCTEXT("BreakdownMenu", "Load a save to see your inventory breakdown.");
 	Breakdown->bAllowUserReset = false;
 	RootSection->SectionProperties.Add(BreakdownKey, Breakdown);
 
-	// Second label line (the menu shows one line per label, so the text is split in two).
-	UConfigPropertySection* Status = CreateDefaultSubobject<UConfigPropertySection>(TEXT("Status"));
+	UInventoryBonusLabel* Status = CreateDefaultSubobject<UInventoryBonusLabel>(TEXT("Status"));
 	Status->DisplayName = LOCTEXT("StatusMenu", "In the main menu, this is the bonus new saves start with.");
 	Status->bAllowUserReset = false;
 	RootSection->SectionProperties.Add(StatusKey, Status);
@@ -91,7 +91,9 @@ namespace
 			NativeClass == UConfigPropertyBool::StaticClass() ? TEXT("BP_ConfigPropertyBool") : nullptr;
 		if (!BlueprintName)
 		{
-			return Native; // already a Blueprint class
+			// Has its own widget (our labels) or is already a Blueprint class: copy it as is.
+			return DuplicateObject<UConfigProperty>(Native, Outer,
+				MakeUniqueObjectName(Outer, NativeClass, FName(*(Native->GetName() + TEXT("_Menu")))));
 		}
 		UClass* BlueprintClass = LoadClass<UConfigProperty>(nullptr,
 			*FString::Printf(TEXT("/SML/Interface/UI/Menu/Mods/ConfigProperties/%s.%s_C"), BlueprintName, BlueprintName));
@@ -136,11 +138,8 @@ namespace
 			UConfigPropertySection* MenuSection = CastChecked<UConfigPropertySection>(Menu);
 			if (UCP_Section* Widget = Cast<UCP_Section>(MenuSection))
 			{
-				// SML's default is one horizontal row with a scroll bar. An empty section (the
-				// breakdown label) shows its text as a header.
+				// SML's default is one horizontal row with a scroll bar.
 				Widget->WidgetType = ECP_SectionWidgetType::CPS_Vertical;
-				Widget->HasHeader = Section->SectionProperties.IsEmpty();
-				Widget->HeaderText = FText::GetEmpty(); // header shows "{HeaderText} ({DisplayName})"; empty = DisplayName only
 			}
 			for (const TPair<FString, TObjectPtr<UConfigProperty>>& Child : Section->SectionProperties)
 			{
