@@ -27,7 +27,7 @@ FConfigId UInventoryBonusConfig::GetId()
 UInventoryBonusConfig::UInventoryBonusConfig()
 {
 	ConfigId = GetId();
-	DisplayName = LOCTEXT("ConfigName", "Inventory Bonus");
+	DisplayName = LOCTEXT("ConfigName", "Carry It All");
 	Description = LOCTEXT("ConfigDescription",
 		"Extra inventory slots added on top of your default slots, vanilla upgrades and other mods' upgrades. Each save keeps its own bonus.");
 

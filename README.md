@@ -1,4 +1,4 @@
-# Inventory Bonus
+# Carry It All
 
 Adds **+X inventory slots** on top of everything else. There are no milestones or unlocks. Each save has its own bonus, and you can change it in-game whenever you like.
 
@@ -16,7 +16,7 @@ total slots = default + vanilla upgrades + other mods' upgrades + bonus
 Every part except the bonus is recalculated from the game's own data on spawn, on load, and whenever any schematic is unlocked. Buying upgrades or adding and removing other inventory mods keeps working.
 
 ## Settings menu
-Open **Mods → Mod Configuration → Inventory Bonus**.
+Open **Mods → Mod Configuration → Carry It All**.
 - **In a save** (pause menu): the first line shows your breakdown, e.g. `Default 18 / Unlocked 12 / Bonus 1000 = 1030 slots` (a `Mods` part appears only if another inventory mod adds slots). **Bonus inventory slots (this save)** changes that save's bonus. The second line shows how many items you carry and the lowest bonus that keeps them all. While you change the value nothing happens yet: it's applied once it has stayed the same for 2 seconds (in single player, when you close the pause menu, because the game is paused). If the new value is too low for what you carry, the second line turns into a loud **!!! WARNING !!!** with roughly how many stacks will go into a crate.
 - **In the main menu**: **Bonus inventory slots (new saves)** is the bonus a save starts with the first time it's loaded with this mod.
 - **Dedicated servers: any player can change the bonus**: see Multiplayer below.
@@ -83,7 +83,7 @@ https://docs.ficsit.app/satisfactory-modding/latest/Development/BeginnersGuide/d
 1. Copy this `InventoryBonus` folder into `SatisfactoryModLoader/Mods/`.
 2. Right-click `FactoryGame.uproject`, choose **Generate Visual Studio project files**, then build **Development Editor / Win64**.
 3. Open the editor. In **Alpakit**, set the game path to your Satisfactory install folder, tick **InventoryBonus**, and click **Alpakit Dev**.
-4. Launch the game and check **Mods → Mod Configuration → Inventory Bonus**, or type `/invbonus` in chat.
+4. Launch the game and check **Mods → Mod Configuration → Carry It All**, or type `/invbonus` in chat.
 
 ## Limitations
 - Mods that add slots through schematics are counted, which is the normal way and how `InventorySpace2`/`3` work. A mod that resizes the inventory directly in code is overridden by this mod's total. If that happens, raise the bonus to compensate.

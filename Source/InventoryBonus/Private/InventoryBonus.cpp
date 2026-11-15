@@ -539,7 +539,7 @@ void FInventoryBonus::AnnounceChange(UWorld* World, const FBonusChangeResult& Re
 	}
 	FChatMessageStruct Message;
 	Message.MessageType = EFGChatMessageType::CMT_SystemMessage;
-	Message.MessageSender = FText::FromString(TEXT("Inventory Bonus"));
+	Message.MessageSender = FText::FromString(TEXT("Carry It All"));
 	Message.MessageText = FText::FromString(FString::Printf(TEXT("Inventory bonus for this save set to +%d."), GetBonus(World)));
 	Chat->BroadcastChatMessage(Message);
 
