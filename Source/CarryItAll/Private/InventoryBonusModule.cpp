@@ -7,4 +7,4 @@ void FInventoryBonusModule::StartupModule()
 	FInventoryBonus::RegisterHooks();
 }
 
-IMPLEMENT_MODULE(FInventoryBonusModule, InventoryBonus)
+IMPLEMENT_MODULE(FInventoryBonusModule, CarryItAll)

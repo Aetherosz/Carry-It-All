@@ -113,7 +113,7 @@ void FInventoryBonus::RegisterHooks()
 
 				if (AChatCommandSubsystem* Commands = AChatCommandSubsystem::Get(Self))
 				{
-					Commands->RegisterCommand(TEXT("InventoryBonus"), AInventoryBonusCommand::StaticClass());
+					Commands->RegisterCommand(TEXT("CarryItAll"), AInventoryBonusCommand::StaticClass());
 				}
 
 				// Applies menu edits once they settle, and keeps the menu's item count current.

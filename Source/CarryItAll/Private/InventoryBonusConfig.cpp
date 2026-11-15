@@ -19,7 +19,7 @@ const FString UInventoryBonusConfig::NewSaveBonusKey = TEXT("NewSaveBonus");
 FConfigId UInventoryBonusConfig::GetId()
 {
 	FConfigId Id;
-	Id.ModReference = TEXT("InventoryBonus");
+	Id.ModReference = TEXT("CarryItAll");
 	Id.ConfigCategory = TEXT("");
 	return Id;
 }
@@ -101,7 +101,7 @@ namespace
 			*FString::Printf(TEXT("/SML/Interface/UI/Menu/Mods/ConfigProperties/%s.%s_C"), BlueprintName, BlueprintName));
 		if (!BlueprintClass)
 		{
-			UE_LOG(LogTemp, Error, TEXT("InventoryBonus: %s not found, the config menu will be empty"), BlueprintName);
+			UE_LOG(LogTemp, Error, TEXT("CarryItAll: %s not found, the config menu will be empty"), BlueprintName);
 			return Native;
 		}
 

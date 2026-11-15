@@ -1,4 +1,4 @@
-# InventoryBonus — handoff
+# Carry It All (mod ID `CarryItAll`) — handoff
 
 Notes for picking this project up on a new PC.
 
@@ -7,8 +7,8 @@ Notes for picking this project up on a new PC.
 |---|---|---|
 | `1-Installers\UnrealEngine-5.6.1-CSS` | Engine installer: the .exe plus 3 .bin files | Run the .exe. It installs to `C:\Program Files\Unreal Engine - CSS` |
 | `1-Installers\Wwise_2025.1.6.9117` | Copy of the installed Wwise | Copy to `C:\Audiokinetic\Wwise_2025.1.6.9117`. If the Audiokinetic Launcher doesn't pick it up, install 2025.1.6.9117 through the launcher instead |
-| `2-Project\SatisfactoryModLoader` | Starter project with Wwise already integrated and compiled binaries | Copy it to a short path (see "Path length" below). It already contains `Mods\InventoryBonus` |
-| `3-Builds\` | Packaged builds | Unzip into `<Satisfactory>\FactoryGame\Mods\InventoryBonus\` |
+| `2-Project\SatisfactoryModLoader` | Starter project with Wwise already integrated and compiled binaries | Copy it to a short path (see "Path length" below). It contains `Mods\InventoryBonus` from before the rename: delete it and put the repo at `Mods\CarryItAll` |
+| `3-Builds\` | Packaged builds | Unzip into `<Satisfactory>\FactoryGame\Mods\CarryItAll\` (the 1.0.0 zip there is the old ID) |
 | `4-Memory` | Notes from the previous AI session | Give them to the next session as context |
 
 You still have to install on the new PC:
@@ -22,7 +22,7 @@ Order: Visual Studio → engine → Wwise → copy the project to a short path �
 
 If the copied binaries won't load, delete `Binaries` and `Intermediate` in the project and the mod folders, then rebuild.
 
-The source of truth for the mod is the GitHub repo `Aetherosz/Inventory-Bonus`. Clone it over `<project>\Mods\InventoryBonus`, or replace that folder with the clone. The folder must be named `InventoryBonus` to match the plugin name.
+The source of truth for the mod is the GitHub repo `Aetherosz/Carry-It-All` (formerly Inventory-Bonus). Clone it to `<project>\Mods\CarryItAll`, or replace that folder with the clone. The folder must be named `CarryItAll` to match the plugin name.
 
 ## Status (2026-11-15)
 - **v1.0.0 works in-game.** In a real save, `/invbonus` printed `18 default + 12 vanilla upgrades + 200 mod upgrades + 1000 bonus = 1230 slots`.
@@ -55,7 +55,7 @@ total slots = default + vanilla schematic slot unlocks + other mods' schematic s
 ## Code map
 | File | Role |
 |---|---|
-| `InventoryBonus.uplugin` | Plugin descriptor, v1.1.1. Depends on SML `^3.12.0`, GameVersion `>=491125` |
+| `CarryItAll.uplugin` | Plugin descriptor, v2.0.0. Display name "Carry It All"; mod ID `CarryItAll` since 2.0.0 (was `InventoryBonus`; C++ class and file names kept the old name). Depends on SML `^3.12.0`, GameVersion `>=491125` |
 | `Resources/Icon128.png` | Mod icon |
 | `Config/AccessTransformers.ini` | `Friend` access so the mod can read the private `AFGCharacterPlayer::mDefaultPlayerInventorySlots` |
 | `Private/InventoryBonus.cpp` | All hooks, the slot math, the crate shrink, and the config sync |
@@ -109,7 +109,7 @@ Follow https://docs.ficsit.app/satisfactory-modding/latest/Development/Beginners
 8. **Generate soundbanks:**
    - Open `SatisfactoryModLoader_WwiseProject.wproj` in Wwise.
    - In SoundBanks, right-click the top folder and choose Generate for all platforms.
-9. **Put this repo at** `<project>\Mods\InventoryBonus`. Either clone it there, or clone it elsewhere and create a junction into `Mods`.
+9. **Put this repo at** `<project>\Mods\CarryItAll`. Either clone it there, or clone it elsewhere and create a junction into `Mods`.
 
 ## Build commands (PowerShell)
 `<project>` is the short folder containing `FactoryGame.uproject`, e.g. `C:\SML`. Close the Unreal Editor first: Live Coding blocks UBT.
@@ -124,18 +124,18 @@ Build the editor. The first build takes about 10 minutes. It is needed before yo
 ```
 Package the mod. This is the same UAT call Alpakit Dev makes. It compiles the Shipping DLLs, including the hooks. The first run takes about 25 minutes:
 ```powershell
-& "C:\Program Files\Unreal Engine - CSS\Engine\Build\BatchFiles\RunUAT.bat" -ScriptsForProject="<project>\FactoryGame.uproject" PackagePlugin -project="<project>\FactoryGame.uproject" -clientconfig=Shipping -serverconfig=Shipping -utf8output -DLCName=InventoryBonus -build -platform=Win64 -nocompileeditor -installed
+& "C:\Program Files\Unreal Engine - CSS\Engine\Build\BatchFiles\RunUAT.bat" -ScriptsForProject="<project>\FactoryGame.uproject" PackagePlugin -project="<project>\FactoryGame.uproject" -clientconfig=Shipping -serverconfig=Shipping -utf8output -DLCName=CarryItAll -build -platform=Win64 -nocompileeditor -installed
 ```
-The output is `<project>\Saved\ArchivedPlugins\InventoryBonus\InventoryBonus-Windows.zip`. It contains DLLs for both Steam and Epic.
+The output is `<project>\Saved\ArchivedPlugins\CarryItAll\CarryItAll-Windows.zip`. It contains DLLs for both Steam and Epic.
 
 **Don't** run `Build.bat FactoryGame Win64 Shipping` directly. It tries to compile engine modules and fails with `CoreNetTypes.generated.h` not found. Use the RunUAT command above.
 
 ## Installing and testing
 1. Close Satisfactory Mod Manager completely, including the tray icon. It can remove mods it doesn't manage.
-2. Unzip the package into `<Satisfactory>\FactoryGame\Mods\InventoryBonus\`.
+2. Unzip the package into `<Satisfactory>\FactoryGame\Mods\CarryItAll\`.
 3. Launch the game from Steam.
 4. In a save, press Enter and type `/invbonus`.
-5. Log: `%LOCALAPPDATA%\FactoryGame\Saved\Logs\FactoryGame.log`. Search it for `InventoryBonus`.
+5. Log: `%LOCALAPPDATA%\FactoryGame\Saved\Logs\FactoryGame.log`. Search it for `CarryItAll` and `InventoryBonus` (the log category is still LogInventoryBonus).
 
 ## Possible next steps
 - Test v1.1.0 and v1.1.1 in-game (see Status).

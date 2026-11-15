@@ -44,19 +44,19 @@ The bonus is stored in the save file. Saves from v1.0 (which used one bonus for 
 ## Multiplayer
 - The bonus applies to every player. Everyone needs the mod installed.
 - **Single player / hosting:** only the host can change it.
-- **Dedicated server:** by default, only the server console can change the bonus (players can still type `/invbonus` to see their breakdown). To let every player change it, set `"AnyPlayerCanChange": true` in the server's `FactoryGame/Configs/InventoryBonus.cfg`. Only the server's setting counts.
+- **Dedicated server:** by default, only the server console can change the bonus (players can still type `/invbonus` to see their breakdown). To let every player change it, set `"AnyPlayerCanChange": true` in the server's `FactoryGame/Configs/CarryItAll.cfg`. Only the server's setting counts.
 
 ## Uninstalling
 Before you remove the mod, run `/invbonus 0` in each save you care about. Anything that no longer fits goes into a crate, so no items are left in slots that disappear.
 
 ## Files
 ```
-InventoryBonus/
-  InventoryBonus.uplugin
+CarryItAll/
+  CarryItAll.uplugin
   Resources/Icon128.png                 mod icon
   Config/AccessTransformers.ini         grants read access to the private default-slot field
-  Source/InventoryBonus/
-    InventoryBonus.Build.cs             from the official Alpakit C++ template
+  Source/CarryItAll/
+    CarryItAll.Build.cs                 from the official Alpakit C++ template
     Public/InventoryBonus.h             slot math, crate shrink, config sync
     Private/InventoryBonus.cpp          hooks: Resize, BeginPlay, GiveAccessToSchematic(s), config changes
     Public|Private/InventoryBonusSubsystem.*  stores the bonus in the save file
@@ -80,9 +80,9 @@ https://docs.ficsit.app/satisfactory-modding/latest/Development/BeginnersGuide/d
    Keep it at a short path (e.g. `C:\SML`): the build fails if any path goes over 260 characters.
 
 ## Compile and install
-1. Copy this `InventoryBonus` folder into `SatisfactoryModLoader/Mods/`.
+1. Copy this `CarryItAll` folder into `SatisfactoryModLoader/Mods/`.
 2. Right-click `FactoryGame.uproject`, choose **Generate Visual Studio project files**, then build **Development Editor / Win64**.
-3. Open the editor. In **Alpakit**, set the game path to your Satisfactory install folder, tick **InventoryBonus**, and click **Alpakit Dev**.
+3. Open the editor. In **Alpakit**, set the game path to your Satisfactory install folder, tick **CarryItAll**, and click **Alpakit Dev**.
 4. Launch the game and check **Mods → Mod Configuration → Carry It All**, or type `/invbonus` in chat.
 
 ## Limitations
