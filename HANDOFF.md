@@ -25,7 +25,7 @@ If the copied binaries won't load, delete `Binaries` and `Intermediate` in the p
 The source of truth for the mod is the GitHub repo `Aetherosz/Carry-It-All` (formerly Inventory-Bonus). Clone it to `<project>\Mods\CarryItAll`, or replace that folder with the clone. The folder must be named `CarryItAll` to match the plugin name.
 
 ## Status (2026-11-15)
-- **1.0.0 is the first public release** on ficsit.app: https://ficsit.app/mod/CMqTrzFafewRRg (mod reference `CarryItAll`, owner Aetherosz). Created **hidden**; it is public only once the Hidden switch on the mod page is turned off.
+- **1.0.0 is the first public release** on ficsit.app: https://ficsit.app/mod/CMqTrzFafewRRg (mod reference `CarryItAll`, owner Aetherosz). Public since 2026-11-15 (tested via an SMM install first).
   - Windows client only. No WindowsServer/LinuxServer builds yet, so dedicated servers are not supported (the description says so).
   - AI disclosure on ficsit.app: "Generative AI was used", described as "Coded with AI assistance. The design, decisions and in-game testing are mine. No AI-generated art, models or audio."
 - Private history before the public release: builds 1.0.0-1.3.1 under the old ID `InventoryBonus`, then 2.0.0 (rename to `CarryItAll`), renumbered to public 1.0.0. Tested in-game along the way: slot math, per-save bonus, menu layout and drag debounce (one crate per change), exit without crash. The 1.0.0 build itself (new ID) still needs one in-game check.
@@ -131,7 +131,7 @@ The output is `<project>\Saved\ArchivedPlugins\CarryItAll\CarryItAll-Windows.zip
 5. Log: `%LOCALAPPDATA%\FactoryGame\Saved\Logs\FactoryGame.log`. Search it for `CarryItAll` and `InventoryBonus` (the log category is still LogInventoryBonus).
 
 ## Possible next steps
-- Check the 1.0.0 build in-game, then turn off Hidden on the ficsit.app page to publish.
+- Watch the ficsit.app page for comments and compatibility reports.
 - New versions on ficsit.app: bump `SemVersion`/`VersionName` and keep `Version` = major; upload a zip without .pdb files (the browser upload limit is 10 MB) with forward-slash paths.
 - Dedicated server support: package WindowsServer and LinuxServer targets (LinuxServer needs Epic's Linux cross-compile toolchain) and test on a real server.
 - **Next mod idea (Aetherosz's):** auto-supports.
