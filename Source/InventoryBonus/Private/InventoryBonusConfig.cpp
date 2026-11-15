@@ -10,6 +10,7 @@
 #define LOCTEXT_NAMESPACE "InventoryBonus"
 
 const FString UInventoryBonusConfig::BreakdownKey = TEXT("Breakdown");
+const FString UInventoryBonusConfig::StatusKey = TEXT("Status");
 const FString UInventoryBonusConfig::BonusKey = TEXT("Bonus");
 const FString UInventoryBonusConfig::AnyPlayerCanChangeKey = TEXT("AnyPlayerCanChange");
 const FString UInventoryBonusConfig::NewSaveBonusKey = TEXT("NewSaveBonus");
@@ -36,6 +37,12 @@ UInventoryBonusConfig::UInventoryBonusConfig()
 	Breakdown->DisplayName = LOCTEXT("BreakdownMenu", "Load a save to see your inventory breakdown.");
 	Breakdown->bAllowUserReset = false;
 	RootSection->SectionProperties.Add(BreakdownKey, Breakdown);
+
+	// Second label line (the menu shows one line per label, so the text is split in two).
+	UConfigPropertySection* Status = CreateDefaultSubobject<UConfigPropertySection>(TEXT("Status"));
+	Status->DisplayName = LOCTEXT("StatusMenu", "In the main menu, this is the bonus new saves start with.");
+	Status->bAllowUserReset = false;
+	RootSection->SectionProperties.Add(StatusKey, Status);
 
 	UConfigPropertyInteger* Bonus = CreateDefaultSubobject<UConfigPropertyInteger>(TEXT("Bonus"));
 	Bonus->DisplayName = LOCTEXT("BonusNameMenu", "Bonus inventory slots (new saves)");

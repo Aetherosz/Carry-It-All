@@ -31,7 +31,7 @@ Open **Mods → Mod Configuration → Inventory Bonus**.
 | `/invbonus -200` | Remove 200 |
 | `/invbonus 0` | No bonus (back to the normal game) |
 
-The range is 0–20000.
+The range is 0–1000.
 
 ## Lowering the bonus never deletes items
 When you lower the bonus (with `/invbonus` or in the settings menu), items in the slots being removed are moved into free slots. Whatever doesn't fit goes into a **crate at your feet**, and chat tells you how many items went in. The crate is created before anything is removed; if it can't be created, the inventory isn't shrunk.

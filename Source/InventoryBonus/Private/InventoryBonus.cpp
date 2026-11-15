@@ -11,7 +11,6 @@
 #include "Configuration/Properties/ConfigPropertyInteger.h"
 #include "Configuration/Properties/ConfigPropertySection.h"
 #include "Configuration/Properties/WidgetExtension/CP_Section.h"
-#include "Misc/ScopeExit.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -474,10 +473,18 @@ void FInventoryBonus::OnConfigChanged(UWorld* World)
 	{
 		return; // in multiplayer the host's value counts
 	}
-	const int32 MenuValue = FMath::Clamp(GetConfigInt(UInventoryBonusConfig::BonusKey, DefaultBonus), 0, MaxBonus);
+	const int32 RawMenuValue = GetConfigInt(UInventoryBonusConfig::BonusKey, DefaultBonus);
+	const int32 MenuValue = FMath::Clamp(RawMenuValue, 0, MaxBonus);
 
 	if (AInventoryBonusSubsystem* Subsystem = AInventoryBonusSubsystem::Get(World))
 	{
+		// A save from before the cap may hold more than MaxBonus; showing it must not shrink it.
+		if (RawMenuValue == Subsystem->GetBonus())
+		{
+			PendingMenuValue = -1;
+			UpdateMenuText(EMenuMode::InSave, GetLocalPlayer(World));
+			return;
+		}
 		// In a save: never apply straight away. The menu's number box reports every value it
 		// passes while being dragged; applying each one would shrink (and crate) many times.
 		const int32 NewPending = MenuValue == Subsystem->GetBonus() ? -1 : MenuValue;
@@ -574,29 +581,38 @@ AFGCharacterPlayer* FInventoryBonus::GetLocalPlayer(UWorld* World)
 
 void FInventoryBonus::UpdateMenuText(EMenuMode Mode, AFGCharacterPlayer* LocalPlayer)
 {
-	UConfigProperty* BreakdownLabel = GetConfigProperty(UInventoryBonusConfig::BreakdownKey);
+	UConfigProperty* Line1 = GetConfigProperty(UInventoryBonusConfig::BreakdownKey);
+	UConfigProperty* Line2 = GetConfigProperty(UInventoryBonusConfig::StatusKey);
 	UConfigProperty* BonusProperty = GetConfigProperty(UInventoryBonusConfig::BonusKey);
-	if (!BreakdownLabel || !BonusProperty)
+	if (!Line1 || !Line2 || !BonusProperty)
 	{
 		return;
 	}
-	// The menu draws the breakdown label as a section header.
-	ON_SCOPE_EXIT
+	// The menu shows each label as a one-line section header, so keep each line short.
+	const auto SetLines = [Line1, Line2](const FString& First, const FString& Second)
 	{
-		if (UCP_Section* Header = Cast<UCP_Section>(BreakdownLabel))
+		const auto SetLine = [](UConfigProperty* Line, const FString& Text)
 		{
-			Header->HeaderText = BreakdownLabel->DisplayName;
-		}
+			Line->DisplayName = FText::FromString(Text);
+			if (UCP_Section* Header = Cast<UCP_Section>(Line))
+			{
+				Header->HeaderText = Line->DisplayName;
+			}
+		};
+		SetLine(Line1, First);
+		SetLine(Line2, Second);
 	};
 
 	switch (Mode)
 	{
 	case EMenuMode::MainMenu:
-		BreakdownLabel->DisplayName = FText::FromString(TEXT("Load a save to see your inventory breakdown."));
+		SetLines(TEXT("Load a save to see your inventory slots."),
+			TEXT("In the main menu, this is the bonus new saves start with."));
 		BonusProperty->DisplayName = FText::FromString(TEXT("Bonus inventory slots (new saves)"));
 		return;
 	case EMenuMode::Client:
-		BreakdownLabel->DisplayName = FText::FromString(TEXT("Multiplayer: the host's bonus is used. Type /invbonus to see your slots."));
+		SetLines(TEXT("Multiplayer: the host's bonus is used."),
+			TEXT("Type /invbonus to see your slots."));
 		BonusProperty->DisplayName = FText::FromString(TEXT("Bonus inventory slots (set by the host)"));
 		return;
 	case EMenuMode::InSave:
@@ -625,33 +641,36 @@ void FInventoryBonus::UpdateMenuText(EMenuMode Mode, AFGCharacterPlayer* LocalPl
 	}
 	const int32 Base = B.Default + B.VanillaUpgrades + B.ModUpgrades;
 	const int32 LowestSafeBonus = FMath::Max(0, UsedSlots - Base);
-	const FString Carrying = FString::Printf(TEXT("You carry %d items in %d slots."), Items, UsedSlots);
+	const int32 ShownBonus = PendingMenuValue >= 0 ? PendingMenuValue : B.Bonus;
+	const int32 ShownSlots = FMath::Max(1, Base + ShownBonus);
 
-	if (PendingMenuValue < 0)
+	// Line 1: where the slots come from (with the value being picked, while it's pending).
+	const FString Slots = FString::Printf(TEXT("Slots: %d default + %d vanilla + %d mods + %d bonus = %d%s"),
+		B.Default, B.VanillaUpgrades, B.ModUpgrades, ShownBonus, ShownSlots,
+		PendingMenuValue >= 0 ? *FString::Printf(TEXT("  (now %d)"), B.Wanted) : TEXT(""));
+
+	// Line 2: what you carry, and what the new value would do to it.
+	FString Status;
+	if (PendingMenuValue >= 0 && PendingMenuValue < LowestSafeBonus)
 	{
-		BreakdownLabel->DisplayName = FText::FromString(FString::Printf(
-			TEXT("Your inventory: %d default + %d vanilla upgrades + %d mod upgrades + %d bonus = %d slots. %s %s"),
-			B.Default, B.VanillaUpgrades, B.ModUpgrades, B.Bonus, B.Wanted, *Carrying,
+		// Lowering below what you carry: make it impossible to miss.
+		const int32 StacksToCrate = UsedSlots - ShownSlots;
+		Status = FString::Printf(TEXT("!!! WARNING: %d of your %d stacks go into a crate. Keep +%d or more !!!"),
+			StacksToCrate, UsedSlots, LowestSafeBonus);
+		BonusProperty->DisplayName = FText::FromString(FString::Printf(
+			TEXT("Bonus inventory slots  !!! %d stacks to a crate !!!"), StacksToCrate));
+	}
+	else if (PendingMenuValue >= 0)
+	{
+		Status = FString::Printf(TEXT("Everything fits (%d stacks). Applies 2 s after you stop, or when you close the menu."),
+			UsedSlots);
+	}
+	else
+	{
+		Status = FString::Printf(TEXT("Carrying %d items in %d stacks. %s"), Items, UsedSlots,
 			LowestSafeBonus > 0
-				? *FString::Printf(TEXT("A bonus below +%d puts items in a crate."), LowestSafeBonus)
-				: TEXT("Any bonus fits everything you carry.")));
-		return;
+				? *FString::Printf(TEXT("Below +%d, extra stacks go into a crate."), LowestSafeBonus)
+				: TEXT("Any bonus fits them all."));
 	}
-
-	const int32 NewSlots = FMath::Max(1, Base + PendingMenuValue);
-	if (PendingMenuValue >= LowestSafeBonus)
-	{
-		BreakdownLabel->DisplayName = FText::FromString(FString::Printf(
-			TEXT("New bonus +%d = %d slots. %s Everything fits. Applies 2 seconds after you stop changing it (single player: when you close the menu)."),
-			PendingMenuValue, NewSlots, *Carrying));
-		return;
-	}
-
-	// Lowering below what you carry: make it impossible to miss.
-	const int32 StacksToCrate = UsedSlots - NewSlots;
-	BreakdownLabel->DisplayName = FText::FromString(FString::Printf(
-		TEXT("!!! WARNING !!! +%d gives only %d slots. %s About %d stacks will go into a crate at your feet. Keep it at +%d or more to keep everything on you."),
-		PendingMenuValue, NewSlots, *Carrying, StacksToCrate, LowestSafeBonus));
-	BonusProperty->DisplayName = FText::FromString(FString::Printf(
-		TEXT("Bonus inventory slots (this save) - !!! %d stacks to a crate !!!"), StacksToCrate));
+	SetLines(Slots, Status);
 }

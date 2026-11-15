@@ -51,8 +51,11 @@ class FInventoryBonus
 public:
 	/** Bonus a new save starts with until you change the "new saves" value. */
 	static constexpr int32 DefaultBonus = 1000;
-	/** Safety cap: very large inventories make the inventory UI slow. */
-	static constexpr int32 MaxBonus = 20000;
+	/**
+	 * Highest bonus the menu and /invbonus allow. More than this isn't useful, and very large
+	 * inventories make the inventory UI slow. A save that already has more keeps it.
+	 */
+	static constexpr int32 MaxBonus = 1000;
 
 	static void RegisterHooks();
 

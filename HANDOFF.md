@@ -42,7 +42,7 @@ The source of truth for the mod is the GitHub repo `Aetherosz/Inventory-Bonus`. 
 ## What the mod does
 total slots = default + vanilla schematic slot unlocks + other mods' schematic slot unlocks + bonus
 
-- There are no milestones; the bonus applies by default. It is adjustable from 0 to 20000.
+- There are no milestones; the bonus applies by default. It is adjustable from 0 to 1000.
 - **Per save:** the bonus is stored in the save by `AInventoryBonusSubsystem` (`UPROPERTY(SaveGame)`). A save without a stored bonus takes the "new saves" value (default 1000). v1.0 used one global `Bonus`; on first start of v1.1 that value is copied into the hidden `NewSaveBonus` key, so old saves keep the bonus they had.
 - **Settings menu:** in a save, the `Bonus` field edits that save's bonus and the top line shows the breakdown. In the main menu, the same field edits the "new saves" value. On a client it shows that the host's value is used.
 - **Permissions:** single player and the host can always change it. On a dedicated server only the server console can, unless the server's own `AnyPlayerCanChange` is true. Clients in a hosted game can't.

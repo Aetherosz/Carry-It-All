@@ -21,6 +21,8 @@ public:
 
 	/** Read-only line showing where your slots come from (an empty section used as a label). */
 	static const FString BreakdownKey;
+	/** Read-only second line: what you carry, and the crate warning while lowering the bonus. */
+	static const FString StatusKey;
 	/** The bonus: this save's while playing, the "new saves" default in the main menu. */
 	static const FString BonusKey;
 	/** Dedicated servers: whether players (not only the server console) may change the bonus. */
