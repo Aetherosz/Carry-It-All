@@ -70,4 +70,66 @@ UInventoryBonusConfig::UInventoryBonusConfig()
 	RootSection->SectionProperties.Add(NewSaveBonusKey, NewSaveBonus);
 }
 
+namespace
+{
+	/** Copy of Native as SML's Blueprint version of its class, or Native itself if there is none. */
+	UConfigProperty* ToMenuProperty(UConfigProperty* Native, UObject* Outer)
+	{
+		const UClass* NativeClass = Native->GetClass();
+		const TCHAR* BlueprintName =
+			NativeClass == UConfigPropertySection::StaticClass() ? TEXT("BP_ConfigPropertySection") :
+			NativeClass == UConfigPropertyInteger::StaticClass() ? TEXT("BP_ConfigPropertyInteger") :
+			NativeClass == UConfigPropertyBool::StaticClass() ? TEXT("BP_ConfigPropertyBool") : nullptr;
+		if (!BlueprintName)
+		{
+			return Native; // already a Blueprint class
+		}
+		UClass* BlueprintClass = LoadClass<UConfigProperty>(nullptr,
+			*FString::Printf(TEXT("/SML/Interface/UI/Menu/Mods/ConfigProperties/%s.%s_C"), BlueprintName, BlueprintName));
+		if (!BlueprintClass)
+		{
+			UE_LOG(LogTemp, Error, TEXT("InventoryBonus: %s not found, the config menu will be empty"), BlueprintName);
+			return Native;
+		}
+
+		UConfigProperty* Menu = NewObject<UConfigProperty>(Outer, BlueprintClass, Native->GetFName());
+		Menu->DisplayName = Native->DisplayName;
+		Menu->Tooltip = Native->Tooltip;
+		Menu->bRequiresWorldReload = Native->bRequiresWorldReload;
+		Menu->bHidden = Native->bHidden;
+		Menu->bAllowUserReset = Native->bAllowUserReset;
+
+		if (const UConfigPropertyInteger* Int = Cast<UConfigPropertyInteger>(Native))
+		{
+			UConfigPropertyInteger* MenuInt = CastChecked<UConfigPropertyInteger>(Menu);
+			MenuInt->DefaultValue = Int->DefaultValue;
+			MenuInt->Value = Int->Value;
+		}
+		else if (const UConfigPropertyBool* Bool = Cast<UConfigPropertyBool>(Native))
+		{
+			UConfigPropertyBool* MenuBool = CastChecked<UConfigPropertyBool>(Menu);
+			MenuBool->DefaultValue = Bool->DefaultValue;
+			MenuBool->Value = Bool->Value;
+		}
+		else if (const UConfigPropertySection* Section = Cast<UConfigPropertySection>(Native))
+		{
+			UConfigPropertySection* MenuSection = CastChecked<UConfigPropertySection>(Menu);
+			for (const TPair<FString, TObjectPtr<UConfigProperty>>& Child : Section->SectionProperties)
+			{
+				MenuSection->SectionProperties.Add(Child.Key, Child.Value ? ToMenuProperty(Child.Value, MenuSection) : nullptr);
+			}
+		}
+		return Menu;
+	}
+}
+
+void UInventoryBonusConfig::UseMenuWidgets()
+{
+	UInventoryBonusConfig* Default = GetMutableDefault<UInventoryBonusConfig>();
+	if (Default->RootSection)
+	{
+		Default->RootSection = CastChecked<UConfigPropertySection>(ToMenuProperty(Default->RootSection, Default));
+	}
+}
+
 #undef LOCTEXT_NAMESPACE

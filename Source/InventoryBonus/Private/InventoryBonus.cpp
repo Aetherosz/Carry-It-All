@@ -414,6 +414,7 @@ void FInventoryBonus::RegisterConfig(UGameInstance* GameInstance)
 		UE_LOG(LogInventoryBonus, Error, TEXT("SML config manager not found; using default bonus +%d"), DefaultBonus);
 		return;
 	}
+	UInventoryBonusConfig::UseMenuWidgets();
 	Manager->RegisterModConfiguration(UInventoryBonusConfig::StaticClass());
 	ConfigManager = Manager;
 

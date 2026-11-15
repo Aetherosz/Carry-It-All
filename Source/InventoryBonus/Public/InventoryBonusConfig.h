@@ -29,4 +29,11 @@ public:
 	static const FString NewSaveBonusKey;
 
 	static FConfigId GetId();
+
+	/**
+	 * SML's C++ property classes have no menu widget (only its Blueprint subclasses do), so a
+	 * config built in C++ shows up empty. Swaps the default object's properties for SML's
+	 * BP_ConfigProperty* classes. Call before registering, once SML's content is loaded.
+	 */
+	static void UseMenuWidgets();
 };
