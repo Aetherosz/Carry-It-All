@@ -140,7 +140,7 @@ namespace
 				// breakdown label) shows its text as a header.
 				Widget->WidgetType = ECP_SectionWidgetType::CPS_Vertical;
 				Widget->HasHeader = Section->SectionProperties.IsEmpty();
-				Widget->HeaderText = Native->DisplayName;
+				Widget->HeaderText = FText::GetEmpty(); // header shows "{HeaderText} ({DisplayName})"; empty = DisplayName only
 			}
 			for (const TPair<FString, TObjectPtr<UConfigProperty>>& Child : Section->SectionProperties)
 			{

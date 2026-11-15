@@ -596,7 +596,7 @@ void FInventoryBonus::UpdateMenuText(EMenuMode Mode, AFGCharacterPlayer* LocalPl
 			Line->DisplayName = FText::FromString(Text);
 			if (UCP_Section* Header = Cast<UCP_Section>(Line))
 			{
-				Header->HeaderText = Line->DisplayName;
+				Header->HeaderText = FText::GetEmpty(); // the header shows "{HeaderText} ({DisplayName})", or just DisplayName when HeaderText is empty
 			}
 		};
 		SetLine(Line1, First);
