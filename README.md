@@ -39,7 +39,7 @@ When you lower the bonus (with `/invbonus` or in the settings menu), items in th
 Automatic resizes (loading a save, unlocking an upgrade) never move items: slots that still hold items are kept until you lower the bonus yourself.
 
 ## Each save has its own bonus
-The bonus is stored in the save file. Saves from v1.0 (which used one bonus for every save) keep the bonus you had.
+The bonus is stored in the save file.
 
 ## Multiplayer
 - The bonus applies to every player. Everyone needs the mod installed.

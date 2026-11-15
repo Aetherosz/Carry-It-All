@@ -25,17 +25,10 @@ If the copied binaries won't load, delete `Binaries` and `Intermediate` in the p
 The source of truth for the mod is the GitHub repo `Aetherosz/Carry-It-All` (formerly Inventory-Bonus). Clone it to `<project>\Mods\CarryItAll`, or replace that folder with the clone. The folder must be named `CarryItAll` to match the plugin name.
 
 ## Status (2026-11-15)
-- **v1.0.0 works in-game.** In a real save, `/invbonus` printed `18 default + 12 vanilla upgrades + 200 mod upgrades + 1000 bonus = 1230 slots`.
-- **v1.1.1** (2026-11-15): fixes the menu drag bug (dragging the value down used to shrink and crate at every step) and adds the items-carried line and the low-bonus warning in the menu.
-- **v1.1.0 builds and packages cleanly** (editor build and Shipping package, Steam and Epic DLLs). It has **not been tested in-game yet.** To verify:
-  - A v1.0 save keeps its bonus after updating (migration from the old global value).
-  - Two saves keep different bonuses.
-  - The breakdown line at the top of the settings menu renders. It's an empty `UConfigPropertySection` whose title is rewritten at runtime. If SML doesn't draw it as a label, fall back to putting the breakdown in the Bonus tooltip.
-  - Lowering the bonus to 0 with full trailing slots spawns a crate with the leftovers, and chat reports the count.
-  - Changing the value in the pause-menu settings: nothing happens while dragging; it applies once, 2 s after the value settles (single player: after closing the menu), with one crate at most.
-  - **v1.1.1:** the breakdown line shows items carried and the lowest safe bonus, and turns into a "!!! WARNING !!!" with the stack count when the pending value is too low. Check that SML redraws the label while the menu is open. If it only updates on reopening, the warning still shows on reopen, before the value is applied.
-  - The main menu shows and edits the "(new saves)" value.
-  - Multiplayer: a client can't change the bonus; on a dedicated server only the console can, unless `AnyPlayerCanChange` is on.
+- **1.0.0 is the first public release** on ficsit.app: https://ficsit.app/mod/CMqTrzFafewRRg (mod reference `CarryItAll`, owner Aetherosz). Created **hidden**; it is public only once the Hidden switch on the mod page is turned off.
+  - Windows client only. No WindowsServer/LinuxServer builds yet, so dedicated servers are not supported (the description says so).
+  - AI disclosure on ficsit.app: "Generative AI was used", described as "Coded with AI assistance. The design, decisions and in-game testing are mine. No AI-generated art, models or audio."
+- Private history before the public release: builds 1.0.0-1.3.1 under the old ID `InventoryBonus`, then 2.0.0 (rename to `CarryItAll`), renumbered to public 1.0.0. Tested in-game along the way: slot math, per-save bonus, menu layout and drag debounce (one crate per change), exit without crash. The 1.0.0 build itself (new ID) still needs one in-game check.
 - The author is set to `Aetherosz`.
 - The icon is done: `Resources/Icon128.png`.
 
@@ -55,7 +48,7 @@ total slots = default + vanilla schematic slot unlocks + other mods' schematic s
 ## Code map
 | File | Role |
 |---|---|
-| `CarryItAll.uplugin` | Plugin descriptor, v2.0.0. Display name "Carry It All"; mod ID `CarryItAll` since 2.0.0 (was `InventoryBonus`; C++ class and file names kept the old name). Depends on SML `^3.12.0`, GameVersion `>=491125` |
+| `CarryItAll.uplugin` | Plugin descriptor, v1.0.0 (integer `Version` must equal the SemVer major, or ficsit.app rejects the upload). Display name "Carry It All"; mod ID `CarryItAll` (was `InventoryBonus`; C++ class and file names kept the old name). Depends on SML `^3.12.0`, GameVersion `>=491125` |
 | `Resources/Icon128.png` | Mod icon |
 | `Config/AccessTransformers.ini` | `Friend` access so the mod can read the private `AFGCharacterPlayer::mDefaultPlayerInventorySlots` |
 | `Private/InventoryBonus.cpp` | All hooks, the slot math, the crate shrink, and the config sync |
@@ -138,11 +131,9 @@ The output is `<project>\Saved\ArchivedPlugins\CarryItAll\CarryItAll-Windows.zip
 5. Log: `%LOCALAPPDATA%\FactoryGame\Saved\Logs\FactoryGame.log`. Search it for `CarryItAll` and `InventoryBonus` (the log category is still LogInventoryBonus).
 
 ## Possible next steps
-- Test v1.1.0 and v1.1.1 in-game (see Status).
-- Publish to ficsit.app:
-  1. Run Alpakit Release, which builds the multi-target zip including the Linux dedicated server.
-  2. Upload the zip.
-  3. Clients and server both need the mod.
+- Check the 1.0.0 build in-game, then turn off Hidden on the ficsit.app page to publish.
+- New versions on ficsit.app: bump `SemVersion`/`VersionName` and keep `Version` = major; upload a zip without .pdb files (the browser upload limit is 10 MB) with forward-slash paths.
+- Dedicated server support: package WindowsServer and LinuxServer targets (LinuxServer needs Epic's Linux cross-compile toolchain) and test on a real server.
 - **Next mod idea (Aetherosz's):** auto-supports.
   - Any buildable automatically extends supports down to the terrain, including through water.
   - Also buildable water blocks.
