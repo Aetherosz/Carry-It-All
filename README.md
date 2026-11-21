@@ -4,6 +4,8 @@ Adds **+X inventory slots** on top of everything else. There are no milestones o
 
 ![Carry It All in action](Media/demo.gif)
 
+![The mod's settings](Media/settings.png)
+
 ```
 total slots = default + vanilla upgrades + other mods' upgrades + bonus
 ```
