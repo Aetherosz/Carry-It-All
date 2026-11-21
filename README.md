@@ -2,6 +2,8 @@
 
 Adds **+X inventory slots** on top of everything else. There are no milestones or unlocks. Each save has its own bonus, and you can change it in-game whenever you like.
 
+![Carry It All in action](Media/demo.gif)
+
 ```
 total slots = default + vanilla upgrades + other mods' upgrades + bonus
 ```
